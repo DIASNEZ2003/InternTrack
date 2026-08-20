@@ -65,7 +65,6 @@ function Settings() {
       case 'BSAB': return { primary: 'bg-green-600', hover: 'hover:bg-green-500', text: 'text-green-600', ring: 'focus:ring-green-500', bgLight: 'bg-green-500/20' };
       case 'BSHM': return { primary: 'bg-yellow-500', hover: 'hover:bg-yellow-400', text: 'text-yellow-500', ring: 'focus:ring-yellow-400', bgLight: 'bg-yellow-500/20' };
       case 'BSCRIM': return { primary: 'bg-rose-700', hover: 'hover:bg-rose-600', text: 'text-rose-700', ring: 'focus:ring-rose-500', bgLight: 'bg-rose-500/20' };
-      case 'COTED': return { primary: 'bg-blue-600', hover: 'hover:bg-blue-500', text: 'text-blue-600', ring: 'focus:ring-blue-500', bgLight: 'bg-blue-500/20' };
       default: return { primary: 'bg-gray-800', hover: 'hover:bg-gray-700', text: 'text-gray-800', ring: 'focus:ring-gray-500', bgLight: 'bg-gray-500/20' };
     }
   };
@@ -183,7 +182,6 @@ function Settings() {
                       <option value="BSAB">BSAB</option>
                       <option value="BSHM">BSHM</option>
                       <option value="BSCRIM">BSCRIM</option>
-                      <option value="COTED">COTED</option>
                     </select>
                     <p className={`text-[11px] mt-1.5 ${textMuted}`}>Changing your department will auto-refresh the page and instantly update your dashboard theme.</p>
                   </div>

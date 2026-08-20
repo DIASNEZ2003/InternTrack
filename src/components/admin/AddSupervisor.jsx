@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../api/supabaseClient';
 
 function AddSupervisor() {
@@ -16,8 +16,11 @@ function AddSupervisor() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState({});
-  const [showModalPassword, setShowModalPassword] = useState(false); // Toggle for password in modal
-  const [feedback, setFeedback] = useState({ show: false, type: '', message: '' }); // Feedback Modal State
+  const [showModalPassword, setShowModalPassword] = useState(false); 
+  const [feedback, setFeedback] = useState({ show: false, type: '', message: '' }); 
+
+  const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [formData, setFormData] = useState({ 
     first_name: '', 
@@ -25,7 +28,8 @@ function AddSupervisor() {
     username: '', 
     password: '', 
     confirm_password: '', 
-    company_id: '' 
+    company_id: '',
+    avatar_url: ''
   });
 
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
@@ -46,26 +50,12 @@ function AddSupervisor() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      const { data: adminProfile } = await supabase
-        .from('profiles')
-        .select('department')
-        .eq('id', user.id)
-        .single();
-        
+      const { data: adminProfile } = await supabase.from('profiles').select('department').eq('id', user.id).single();
       let adminDept = adminProfile ? adminProfile.department : '';
       setDepartment(adminDept);
 
-      const { data: supsData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('department', adminDept)
-        .eq('role', 'supervisor')
-        .order('created_at', { ascending: false });
-      
-      const { data: compData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .eq('department', adminDept);
+      const { data: supsData } = await supabase.from('profiles').select('*').eq('department', adminDept).eq('role', 'supervisor').order('created_at', { ascending: false });
+      const { data: compData } = await supabase.from('companies').select('id, name').eq('department', adminDept);
 
       const mappedSups = (supsData || []).map(sup => {
         const comp = (compData || []).find(c => String(c.id) === String(sup.company_id));
@@ -93,7 +83,6 @@ function AddSupervisor() {
   };
 
   const theme = getThemeColors(department);
-
   const bgCard = isDarkMode ? 'bg-gray-900/40 border-white/10 shadow-lg' : 'bg-white border-gray-200 shadow-sm';
   const bgHeader = isDarkMode ? 'bg-black/40 border-white/10' : 'bg-gray-50 border-gray-200';
   const bgInput = isDarkMode ? 'bg-black/40 border-white/10 text-gray-100 placeholder-gray-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400';
@@ -107,6 +96,23 @@ function AddSupervisor() {
   const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
   const closeFeedbackModal = () => setFeedback({ show: false, type: '', message: '' });
 
+  const handlePhotoUpload = async (event) => {
+    try {
+      setIsUploading(true);
+      const file = event.target.files[0];
+      if (!file) return;
+      const fileName = `sup-${Math.random()}.${file.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
+    } catch (error) {
+      setFeedback({ show: true, type: 'error', message: 'Error uploading image: ' + error.message });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const openModal = (mode, sup = null) => {
     setModalMode(mode);
     setShowModalPassword(false);
@@ -115,29 +121,20 @@ function AddSupervisor() {
         first_name: sup.first_name || '', 
         last_name: sup.last_name || '', 
         username: sup.username || '', 
-        company_id: sup.company_id ? String(sup.company_id) : '', // Force to String for React Select
+        company_id: sup.company_id ? String(sup.company_id) : '', 
         password: '', 
-        confirm_password: '' 
+        confirm_password: '',
+        avatar_url: sup.avatar_url || ''
       });
       setActiveSupervisorId(sup.id);
     } else {
-      setFormData({ 
-        first_name: '', 
-        last_name: '', 
-        username: '', 
-        password: '', 
-        confirm_password: '', 
-        company_id: '' 
-      });
+      setFormData({ first_name: '', last_name: '', username: '', password: '', confirm_password: '', company_id: '', avatar_url: '' });
       setActiveSupervisorId(null);
     }
     setIsModalOpen(true);
   };
   
-  const closeModal = () => { 
-    setIsModalOpen(false); 
-    setActiveSupervisorId(null); 
-  };
+  const closeModal = () => { setIsModalOpen(false); setActiveSupervisorId(null); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -151,42 +148,52 @@ function AddSupervisor() {
 
     setIsSubmitting(true);
     try {
-      // Safely handle company_id: prevent sending empty string to the database
-      const safeCompanyId = formData.company_id && formData.company_id.trim() !== '' ? formData.company_id : null;
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
 
+      const safeCompanyId = formData.company_id && formData.company_id.trim() !== '' ? formData.company_id : null;
       const payload = { 
         first_name: formData.first_name, 
         last_name: formData.last_name, 
         username: formData.username, 
         company_id: safeCompanyId,
         department, 
-        role: 'supervisor'
+        role: 'supervisor',
+        avatar_url: formData.avatar_url
       };
 
-      if (formData.password) {
-        payload.raw_password = formData.password;
-      }
+      if (formData.password) payload.raw_password = formData.password;
       
       if (modalMode === 'add') {
         if (!formData.password) throw new Error("Password is required for new supervisors.");
-        
         const authEmail = formData.username.includes('@') ? formData.username : `${formData.username}@supervisor.com`;
+        
         const { data: authData, error: authError } = await supabase.auth.signUp({ email: authEmail, password: formData.password });
-        
         if (authError) throw authError;
-        await supabase.from('profiles').upsert([{ id: authData.user.id, ...payload }]);
-        
+
+        if (adminSession) {
+          await supabase.auth.setSession({
+            access_token: adminSession.access_token,
+            refresh_token: adminSession.refresh_token
+          });
+        }
+
+        const { error: profileError } = await supabase.from('profiles').upsert([{ id: authData.user.id, ...payload }]);
+        if (profileError) throw profileError; 
+
         setFeedback({ show: true, type: 'success', message: 'Supervisor successfully registered!' });
+
       } else {
         if (formData.password) {
           const { error: rpcError } = await supabase.rpc('admin_update_user_password', {
             target_user_id: activeSupervisorId,
             new_password: formData.password
           });
-          if (rpcError) throw rpcError;
+          if (rpcError) throw rpcError; 
         }
+        
+        const { error: updateError } = await supabase.from('profiles').update(payload).eq('id', activeSupervisorId);
+        if (updateError) throw updateError; 
 
-        await supabase.from('profiles').update(payload).eq('id', activeSupervisorId);
         setFeedback({ show: true, type: 'success', message: 'Supervisor updated successfully!' });
       }
       
@@ -201,17 +208,25 @@ function AddSupervisor() {
     }
   };
 
+  // FULLY DESTROY LOGIN CREDENTIALS
   const handleDeleteConfirm = async () => {
     if (!supervisorToDelete) return;
     setIsSubmitting(true);
     try {
-      await supabase.from('profiles').delete().eq('id', supervisorToDelete.id);
+      const { error: rpcError } = await supabase.rpc('admin_delete_user', {
+        target_user_id: supervisorToDelete.id
+      });
+      if (rpcError) throw rpcError;
+
+      const { error: deleteError } = await supabase.from('profiles').delete().eq('id', supervisorToDelete.id);
+      if (deleteError) throw deleteError; 
+
       setSupervisors(supervisors.filter(s => s.id !== supervisorToDelete.id));
       setIsDeleteModalOpen(false);
       setSupervisorToDelete(null);
-      setFeedback({ show: true, type: 'success', message: 'Supervisor successfully deleted.' });
+      setFeedback({ show: true, type: 'success', message: 'Supervisor completely deleted from the system.' });
     } catch (error) { 
-      setFeedback({ show: true, type: 'error', message: 'Failed to delete supervisor: ' + error.message });
+      setFeedback({ show: true, type: 'error', message: 'Failed to completely delete account: ' + error.message });
       setIsDeleteModalOpen(false);
     } finally { 
       setIsSubmitting(false); 
@@ -350,7 +365,6 @@ function AddSupervisor() {
         )}
       </div>
 
-      {/* SUPERVISOR MODAL (Add / Edit) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className={`rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden border border-white/10 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
@@ -366,7 +380,15 @@ function AddSupervisor() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[70vh] custom-scrollbar">
+              
+              <div className="flex flex-col items-center justify-center mb-1">
+                <input type="file" accept="image/*" ref={fileInputRef} onChange={handlePhotoUpload} className="hidden" />
+                <div onClick={() => !isUploading && fileInputRef.current?.click()} className={`w-16 h-16 rounded-full border-2 border-dashed ${theme.border} ${isDarkMode ? 'bg-black/40' : 'bg-gray-50'} flex items-center justify-center cursor-pointer overflow-hidden relative group transition-colors shadow-sm`}>
+                  {isUploading ? <div className={`w-5 h-5 border-2 border-t-transparent rounded-full animate-spin ${theme.border}`}></div> : formData.avatar_url ? <><img src={formData.avatar_url} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-[11px] font-bold text-white">Edit</span></div></> : <svg className={`w-6 h-6 ${textMuted}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-[11px] font-bold uppercase mb-1.5 ${textMuted}`}>First Name</label>
@@ -410,7 +432,6 @@ function AddSupervisor() {
                   <input type={showModalPassword ? "text" : "password"} name="confirm_password" value={formData.confirm_password} onChange={handleFormChange} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? "Leave blank to keep" : "Confirm password"} className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
                 </div>
               </div>
-
               <div className={`pt-3 flex justify-end gap-2 mt-2 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
                 <button type="button" onClick={closeModal} className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors ${isDarkMode ? 'text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10' : 'text-gray-600 bg-gray-100 hover:bg-gray-200'}`}>
                   Cancel
@@ -424,9 +445,8 @@ function AddSupervisor() {
         </div>
       )}
 
-      {/* CONFIRM DELETE MODAL */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className={`rounded-2xl shadow-2xl w-full max-w-[300px] flex flex-col p-6 text-center items-center border border-white/10 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
             <div className="w-12 h-12 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center mb-4 border border-red-500/30">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,8 +459,8 @@ function AddSupervisor() {
               <button onClick={() => setIsDeleteModalOpen(false)} className={`py-2 rounded-lg font-bold text-xs transition-colors flex-1 ${isDarkMode ? 'text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10' : 'text-gray-600 bg-gray-100 hover:bg-gray-200'}`}>
                 Cancel
               </button>
-              <button onClick={handleDeleteConfirm} disabled={isSubmitting} className="py-2 rounded-lg font-bold text-xs text-white shadow-lg flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50">
-                {isSubmitting ? '...' : 'Delete'}
+              <button onClick={handleDeleteConfirm} className="py-2 rounded-lg font-bold text-xs text-white shadow-lg flex-1 bg-red-600 hover:bg-red-500">
+                Delete
               </button>
             </div>
           </div>
@@ -471,7 +491,6 @@ function AddSupervisor() {
         </div>
       )}
 
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }`}</style>
     </div>
   );
 }
