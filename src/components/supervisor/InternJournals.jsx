@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../api/supabaseClient';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
 function InternJournals() {
   const [department, setDepartment] = useState('');
@@ -20,7 +21,7 @@ function InternJournals() {
   const [generatedReport, setGeneratedReport] = useState({
     weekNumber: '',
     inclusiveDates: '',
-    activityLogs: [],
+    activities: '',
     learnings: ''
   });
 
@@ -151,37 +152,34 @@ function InternJournals() {
       if (error) throw error;
 
       const text = await data.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'text/html');
-      
-      let extractedLogs = [];
-      const table = doc.querySelector('table');
-      if (table) {
-        const rows = table.querySelectorAll('tr');
-        rows.forEach(row => {
-          const cells = row.querySelectorAll('td');
-          if (cells.length >= 2) {
-            extractedLogs.push({ 
-              date: cells[0].textContent.trim(), 
-              description: cells[1].innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim() 
-            });
+      let activitiesText = '';
+      let learningsText = '';
+
+      // Handle both new .json format and old .html format safely
+      if (journal.file_name.endsWith('.json')) {
+        const parsed = JSON.parse(text);
+        activitiesText = parsed.activities || '';
+        learningsText = parsed.learnings || '';
+      } else {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const headings = doc.querySelectorAll('h3');
+        headings.forEach(h => {
+          if (h.textContent.includes('Activities')) {
+            let nextEl = h.nextElementSibling;
+            if (nextEl && nextEl.tagName === 'P') activitiesText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim();
+          }
+          if (h.textContent.includes('Learning Experience')) {
+            let nextEl = h.nextElementSibling;
+            if (nextEl && nextEl.tagName === 'P') learningsText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim();
           }
         });
       }
 
-      let learningsText = '';
-      const headings = doc.querySelectorAll('h3');
-      headings.forEach(h => {
-        if (h.textContent.includes('Learning Experience')) {
-          let nextEl = h.nextElementSibling;
-          if (nextEl && nextEl.tagName === 'P') learningsText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim();
-        }
-      });
-
       setGeneratedReport({ 
         weekNumber: journal.week_number, 
         inclusiveDates: journal.inclusive_dates, 
-        activityLogs: extractedLogs, 
+        activities: activitiesText, 
         learnings: learningsText 
       });
       setViewingProfile(journal.profiles);
@@ -193,18 +191,102 @@ function InternJournals() {
     }
   };
 
+  // --- DOCUMENT DOWNLOAD LOGIC ---
   const handleDownload = async (journal) => {
     try {
       const { data, error } = await supabase.storage.from('journals').download(journal.file_path);
       if (error) throw error;
-      const url = window.URL.createObjectURL(data);
-      const a = document.createElement('a'); 
-      a.href = url; 
-      a.download = journal.file_name; 
-      document.body.appendChild(a); 
-      a.click(); 
-      window.URL.revokeObjectURL(url); 
+      
+      const text = await data.text();
+      let reportData = {
+        weekNumber: journal.week_number,
+        inclusiveDates: journal.inclusive_dates,
+        activities: '',
+        learnings: '',
+        firstName: journal.profiles?.first_name || '',
+        lastName: journal.profiles?.last_name || ''
+      };
+
+      if (journal.file_name.endsWith('.json')) {
+        const parsed = JSON.parse(text);
+        reportData.activities = parsed.activities || '';
+        reportData.learnings = parsed.learnings || '';
+      } else {
+        const parser = new DOMParser();
+        const docParser = parser.parseFromString(text, 'text/html');
+        const headings = docParser.querySelectorAll('h3');
+        headings.forEach(h => { 
+          if (h.textContent.includes('Activities')) { 
+            let nextEl = h.nextElementSibling; 
+            if (nextEl && nextEl.tagName === 'P') reportData.activities = nextEl.textContent.trim(); 
+          }
+          if (h.textContent.includes('Learning Experience')) { 
+            let nextEl = h.nextElementSibling; 
+            if (nextEl && nextEl.tagName === 'P') reportData.learnings = nextEl.textContent.trim(); 
+          } 
+        });
+      }
+
+      // Convert line breaks into separate paragraphs for Word
+      const createParagraphs = (textStr) => {
+          if (!textStr) return [new Paragraph({ text: "" })];
+          return textStr.split('\n').map(line => new Paragraph({ text: line, indent: { firstLine: 720 }, spacing: { after: 120 } }));
+      };
+
+      // Construct a perfectly valid Word Document using docx
+      const doc = new Document({
+        creator: "InternTrack",
+        title: `Weekly Report - Week ${reportData.weekNumber}`,
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({
+              text: "WEEKLY PROGRESS REPORT",
+              alignment: AlignmentType.CENTER,
+              heading: HeadingLevel.HEADING_2,
+            }),
+            new Paragraph({ text: "" }), // Spacing
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Student's Name: ", bold: true }),
+                new TextRun(`${reportData.firstName} ${reportData.lastName}`),
+              ]
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Week #: ", bold: true }),
+                new TextRun(`${reportData.weekNumber}`),
+                new TextRun({ text: "    Inclusive Dates: ", bold: true }),
+                new TextRun(`${reportData.inclusiveDates}`),
+              ]
+            }),
+            new Paragraph({ text: "" }), // Spacing
+            new Paragraph({
+              children: [new TextRun({ text: "Activities:", bold: true, size: 24 })],
+              spacing: { before: 240, after: 120 }
+            }),
+            ...createParagraphs(reportData.activities),
+            new Paragraph({
+              children: [new TextRun({ text: "Learning Experience:", bold: true, size: 24 })],
+              spacing: { before: 240, after: 120 }
+            }),
+            ...createParagraphs(reportData.learnings)
+          ]
+        }]
+      });
+
+      // Generate the DOCX file and trigger download
+      const blob = await Packer.toBlob(doc);
+      const dlName = journal.file_name.replace(/\.(json|doc|docx)$/i, '') + '.docx';
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = dlName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
     } catch (error) { 
       alert('Failed to download file.'); 
     }
@@ -326,7 +408,8 @@ function InternJournals() {
                         <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
                         </div>
-                        <p className={`text-[12px] font-bold ${textMain}`}>{report.file_name}</p>
+                        {/* Ensure file name appears as .docx visually even if backed by json */}
+                        <p className={`text-[12px] font-bold ${textMain}`}>{report.file_name.replace(/\.json$/i, '.docx')}</p>
                       </div>
                     </td>
                     <td className="py-2.5 px-4">
@@ -377,20 +460,9 @@ function InternJournals() {
                 
                 <div className="mb-5">
                   <h3 className={`text-[13px] mb-2 font-bold ${textMain}`}>Activities:</h3>
-                  <table className={`w-full border-collapse ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                    <tbody>
-                      {generatedReport.activityLogs && generatedReport.activityLogs.length > 0 ? (
-                        generatedReport.activityLogs.map((log, idx) => (
-                          <tr key={idx}>
-                            <td className={`p-1.5 border w-24 align-top text-[12px] font-bold ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>{log.date}</td>
-                            <td className={`p-1.5 border align-top text-[13px] ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                              <div className="whitespace-pre-wrap leading-snug">{log.description}</div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (<tr><td className={`italic p-1.5 border text-[12px] ${isDarkMode ? 'border-gray-600 text-gray-400' : 'border-gray-300 text-gray-500'}`}>No activities.</td></tr>)}
-                    </tbody>
-                  </table>
+                  <div className={`w-full text-[13px] leading-relaxed p-1.5 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`} style={{ textIndent: '2rem' }}>
+                    <div className="whitespace-pre-wrap">{generatedReport.activities}</div>
+                  </div>
                 </div>
 
                 <div className="mb-5">

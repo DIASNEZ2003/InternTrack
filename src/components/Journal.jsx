@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../api/supabaseClient';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 
 function Journal() {
   const [department, setDepartment] = useState('');
@@ -162,26 +163,33 @@ Respond strictly with a pure JSON object following this exact schema without any
       const { data, error } = await supabase.storage.from('journals').download(journal.file_path);
       if (error) throw error;
       const text = await data.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'text/html');
       
       let activitiesText = '';
       let learningsText = '';
       
-      const headings = doc.querySelectorAll('h3');
-      headings.forEach(h => { 
-        if (h.textContent.includes('Activities')) { 
-          let nextEl = h.nextElementSibling; 
-          if (nextEl && nextEl.tagName === 'P') activitiesText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim(); 
-        }
-        if (h.textContent.includes('Learning Experience')) { 
-          let nextEl = h.nextElementSibling; 
-          if (nextEl && nextEl.tagName === 'P') learningsText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim(); 
-        } 
-      });
+      // Support opening the new clean JSON format OR fallback to older HTML versions
+      if (journal.file_name.endsWith('.json')) {
+        const parsed = JSON.parse(text);
+        activitiesText = parsed.activities || '';
+        learningsText = parsed.learnings || '';
+      } else {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const headings = doc.querySelectorAll('h3');
+        headings.forEach(h => { 
+          if (h.textContent.includes('Activities')) { 
+            let nextEl = h.nextElementSibling; 
+            if (nextEl && nextEl.tagName === 'P') activitiesText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim(); 
+          }
+          if (h.textContent.includes('Learning Experience')) { 
+            let nextEl = h.nextElementSibling; 
+            if (nextEl && nextEl.tagName === 'P') learningsText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim(); 
+          } 
+        });
+      }
       
       setGeneratedReport({ weekNumber: journal.week_number, inclusiveDates: journal.inclusive_dates, activities: activitiesText, learnings: learningsText });
-      setCustomFileName(journal.file_name.replace('.docx', ''));
+      setCustomFileName(journal.file_name.replace(/\.(json|docx|doc)$/i, ''));
       setEditingJournal(journal); setDocumentMode(mode); setIsResultModalOpen(true);
     } catch (error) { alert("Failed to load document."); } finally { setIsFetchingFile(false); }
   };
@@ -190,16 +198,26 @@ Respond strictly with a pure JSON object following this exact schema without any
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const finalFileName = customFileName.trim() === '' ? `Weekly_Report_Week_${generatedReport.weekNumber}.docx` : customFileName.endsWith('.docx') ? customFileName : `${customFileName}.docx`;
       
-      const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
-      const docHtml = `${header}<body><h2 style="text-align:center; font-family:Arial; font-size:16px;">WEEKLY PROGRESS REPORT</h2><p style="font-family:Arial; font-size:13px;"><b>Student's Name:</b> ${profile?.first_name} ${profile?.last_name}</p><p style="font-family:Arial; font-size:13px;"><b>Week #:</b> ${generatedReport.weekNumber} &nbsp;&nbsp;&nbsp;&nbsp; <b>Inclusive Dates:</b> ${generatedReport.inclusiveDates}</p><br/><h3 style="font-family:Arial; font-size:14px;">Activities:</h3><p style="font-family:Arial; font-size:13px; text-indent:2rem; line-height:1.6;">${(generatedReport.activities || '').replace(/\n/g, '<br/>')}</p><h3 style="font-family:Arial; font-size:14px;">Learning Experience:</h3><p style="font-family:Arial; font-size:13px; text-indent:2rem; line-height:1.6;">${(generatedReport.learnings || '').replace(/\n/g, '<br/>')}</p></body></html>`;
+      // We safely store the raw data as JSON in Supabase to avoid all HTML corruption issues
+      const cleanedBase = customFileName.replace(/\.(json|docx|doc)$/i, '').trim();
+      const finalFileName = cleanedBase === '' ? `Weekly_Report_Week_${generatedReport.weekNumber}.json` : `${cleanedBase}.json`;
       
-      const blob = new Blob(['\ufeff' + docHtml], { type: 'application/msword' });
-      const filePath = editingJournal && customFileName.trim() === editingJournal.file_name.replace('.docx', '') ? editingJournal.file_path : `${user.id}/${Date.now()}_${finalFileName}`;
-      const { error: uploadError } = await supabase.storage.from('journals').upload(filePath, blob, { contentType: 'application/msword', upsert: true });
+      const reportData = {
+        weekNumber: generatedReport.weekNumber,
+        inclusiveDates: generatedReport.inclusiveDates,
+        activities: generatedReport.activities,
+        learnings: generatedReport.learnings,
+        firstName: profile?.first_name || '',
+        lastName: profile?.last_name || ''
+      };
       
+      const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+      const filePath = editingJournal && cleanedBase === editingJournal.file_name.replace(/\.(json|docx|doc)$/i, '') ? editingJournal.file_path : `${user.id}/${Date.now()}_${finalFileName}`;
+      
+      const { error: uploadError } = await supabase.storage.from('journals').upload(filePath, blob, { contentType: 'application/json', upsert: true });
       if (uploadError) throw uploadError;
+
       if (editingJournal) {
         if (filePath !== editingJournal.file_path) await supabase.storage.from('journals').remove([editingJournal.file_path]);
         await supabase.from('saved_journals').update({ week_number: generatedReport.weekNumber, inclusive_dates: generatedReport.inclusiveDates, file_name: finalFileName, file_path: filePath }).eq('id', editingJournal.id); 
@@ -214,9 +232,92 @@ Respond strictly with a pure JSON object following this exact schema without any
     try {
       const { data, error } = await supabase.storage.from('journals').download(journal.file_path);
       if (error) throw error;
-      const url = window.URL.createObjectURL(data);
-      const a = document.createElement('a'); a.href = url; a.download = journal.file_name; document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a);
-    } catch (error) { alert('Failed to download file.'); }
+      
+      let reportData = { weekNumber: '', inclusiveDates: '', activities: '', learnings: '', firstName: profile?.first_name || '', lastName: profile?.last_name || '' };
+      const text = await data.text();
+
+      // Read the clean JSON data from Supabase, or extract HTML if it's an old file
+      if (journal.file_name.endsWith('.json')) {
+        reportData = { ...reportData, ...JSON.parse(text) };
+      } else {
+        const parser = new DOMParser();
+        const docParser = parser.parseFromString(text, 'text/html');
+        const headings = docParser.querySelectorAll('h3');
+        headings.forEach(h => { 
+          if (h.textContent.includes('Activities')) { 
+            let nextEl = h.nextElementSibling; 
+            if (nextEl && nextEl.tagName === 'P') reportData.activities = nextEl.textContent.trim(); 
+          }
+          if (h.textContent.includes('Learning Experience')) { 
+            let nextEl = h.nextElementSibling; 
+            if (nextEl && nextEl.tagName === 'P') reportData.learnings = nextEl.textContent.trim(); 
+          } 
+        });
+        reportData.weekNumber = journal.week_number;
+        reportData.inclusiveDates = journal.inclusive_dates;
+      }
+
+      // Convert line breaks into separate paragraphs for Word
+      const createParagraphs = (textStr) => {
+          if (!textStr) return [new Paragraph({ text: "" })];
+          return textStr.split('\n').map(line => new Paragraph({ text: line, indent: { firstLine: 720 }, spacing: { after: 120 } }));
+      };
+
+      // Construct a mathematically perfect, native Word Document using docx
+      const doc = new Document({
+        creator: "InternTrack",
+        title: `Weekly Report - Week ${reportData.weekNumber}`,
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({
+              text: "WEEKLY PROGRESS REPORT",
+              alignment: AlignmentType.CENTER,
+              heading: HeadingLevel.HEADING_2,
+            }),
+            new Paragraph({ text: "" }), // Spacing
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Student's Name: ", bold: true }),
+                new TextRun(`${reportData.firstName} ${reportData.lastName}`),
+              ]
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Week #: ", bold: true }),
+                new TextRun(`${reportData.weekNumber}`),
+                new TextRun({ text: "    Inclusive Dates: ", bold: true }),
+                new TextRun(`${reportData.inclusiveDates}`),
+              ]
+            }),
+            new Paragraph({ text: "" }), // Spacing
+            new Paragraph({
+              children: [new TextRun({ text: "Activities:", bold: true, size: 24 })],
+              spacing: { before: 240, after: 120 }
+            }),
+            ...createParagraphs(reportData.activities),
+            new Paragraph({
+              children: [new TextRun({ text: "Learning Experience:", bold: true, size: 24 })],
+              spacing: { before: 240, after: 120 }
+            }),
+            ...createParagraphs(reportData.learnings)
+          ]
+        }]
+      });
+
+      // Generate the binary DOCX blob and force the browser to download it
+      const blob = await Packer.toBlob(doc);
+      const dlName = journal.file_name.replace(/\.(json|doc|docx)$/i, '') + '.docx';
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = dlName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+    } catch (error) { alert('Failed to download file: ' + error.message); }
   };
 
   const confirmDelete = async () => {
@@ -287,7 +388,8 @@ Respond strictly with a pure JSON object following this exact schema without any
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
                         </div>
                         <div>
-                          <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{item.file_name}</p>
+                          {/* Force UI to look like a docx even though we save it intelligently */}
+                          <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{item.file_name.replace(/\.json$/i, '.docx')}</p>
                           <p className={`text-[11px] ${textMuted}`}>{new Date(item.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
@@ -309,6 +411,7 @@ Respond strictly with a pure JSON object following this exact schema without any
         )}
       </div>
 
+      {/* GENERATE MODAL */}
       {isGenerateModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className={`rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden border ${isDarkMode ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'}`}>
@@ -375,12 +478,7 @@ Respond strictly with a pure JSON object following this exact schema without any
               <div 
                 className="bg-white shadow-xl border border-gray-300 shrink-0 mx-auto transition-all"
                 style={{ 
-                  width: '100%', 
-                  maxWidth: '210mm', // Standard A4 Width 
-                  minHeight: '297mm', // Standard A4 Height
-                  padding: 'clamp(1.5rem, 5vw, 3rem)', // Responsive padding for mobile vs desktop
-                  fontFamily: 'Arial, sans-serif',
-                  color: 'black' // Forces text to be black, just like real paper
+                  width: '100%', maxWidth: '210mm', minHeight: '297mm', padding: 'clamp(1.5rem, 5vw, 3rem)', fontFamily: 'Arial, sans-serif', color: 'black' 
                 }}
               >
                 <h1 className="text-center text-sm sm:text-base font-bold uppercase mb-8">WEEKLY PROGRESS REPORT</h1>
