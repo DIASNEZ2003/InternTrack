@@ -16,6 +16,9 @@ function AddSupervisor() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [showModalPassword, setShowModalPassword] = useState(false); // Toggle for password in modal
+  const [feedback, setFeedback] = useState({ show: false, type: '', message: '' }); // Feedback Modal State
+
   const [formData, setFormData] = useState({ 
     first_name: '', 
     last_name: '', 
@@ -102,15 +105,17 @@ function AddSupervisor() {
 
   const togglePasswordVisibility = (id) => setVisiblePasswords(p => ({ ...p, [id]: !p[id] }));
   const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const closeFeedbackModal = () => setFeedback({ show: false, type: '', message: '' });
 
   const openModal = (mode, sup = null) => {
     setModalMode(mode);
+    setShowModalPassword(false);
     if (sup) {
       setFormData({ 
         first_name: sup.first_name || '', 
         last_name: sup.last_name || '', 
         username: sup.username || '', 
-        company_id: sup.company_id || '',
+        company_id: sup.company_id ? String(sup.company_id) : '', // Force to String for React Select
         password: '', 
         confirm_password: '' 
       });
@@ -139,17 +144,21 @@ function AddSupervisor() {
     
     if (formData.password || formData.confirm_password) {
       if (formData.password !== formData.confirm_password) {
-        return alert("Passwords do not match!");
+        setFeedback({ show: true, type: 'error', message: 'Passwords do not match!' });
+        return;
       }
     }
 
     setIsSubmitting(true);
     try {
+      // Safely handle company_id: prevent sending empty string to the database
+      const safeCompanyId = formData.company_id && formData.company_id.trim() !== '' ? formData.company_id : null;
+
       const payload = { 
         first_name: formData.first_name, 
         last_name: formData.last_name, 
         username: formData.username, 
-        company_id: formData.company_id || null,
+        company_id: safeCompanyId,
         department, 
         role: 'supervisor'
       };
@@ -166,6 +175,8 @@ function AddSupervisor() {
         
         if (authError) throw authError;
         await supabase.from('profiles').upsert([{ id: authData.user.id, ...payload }]);
+        
+        setFeedback({ show: true, type: 'success', message: 'Supervisor successfully registered!' });
       } else {
         if (formData.password) {
           const { error: rpcError } = await supabase.rpc('admin_update_user_password', {
@@ -176,12 +187,15 @@ function AddSupervisor() {
         }
 
         await supabase.from('profiles').update(payload).eq('id', activeSupervisorId);
+        setFeedback({ show: true, type: 'success', message: 'Supervisor updated successfully!' });
       }
       
       await fetchAdminAndSupervisors();
       closeModal();
     } catch (error) { 
-      alert('Failed: ' + error.message); 
+      let errorMsg = error.message;
+      if (errorMsg.includes('User already registered')) errorMsg = 'This username is already taken. Please choose another.';
+      setFeedback({ show: true, type: 'error', message: errorMsg });
     } finally { 
       setIsSubmitting(false); 
     }
@@ -195,8 +209,10 @@ function AddSupervisor() {
       setSupervisors(supervisors.filter(s => s.id !== supervisorToDelete.id));
       setIsDeleteModalOpen(false);
       setSupervisorToDelete(null);
+      setFeedback({ show: true, type: 'success', message: 'Supervisor successfully deleted.' });
     } catch (error) { 
-      alert('Failed to delete.'); 
+      setFeedback({ show: true, type: 'error', message: 'Failed to delete supervisor: ' + error.message });
+      setIsDeleteModalOpen(false);
     } finally { 
       setIsSubmitting(false); 
     }
@@ -334,6 +350,7 @@ function AddSupervisor() {
         )}
       </div>
 
+      {/* SUPERVISOR MODAL (Add / Edit) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className={`rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden border border-white/10 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
@@ -363,9 +380,9 @@ function AddSupervisor() {
               
               <div>
                 <label className={`block text-[11px] font-bold uppercase mb-1.5 ${textMuted}`}>Assign Company</label>
-                <select name="company_id" value={formData.company_id} onChange={handleFormChange} className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors border ${bgInput} ${theme.ring}`}>
+                <select name="company_id" value={formData.company_id || ''} onChange={handleFormChange} className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors border ${bgInput} ${theme.ring}`}>
                   <option value="">None (Unassigned)</option>
-                  {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {companies.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
                 </select>
               </div>
 
@@ -379,20 +396,26 @@ function AddSupervisor() {
                   <label className={`block text-[11px] font-bold uppercase mb-1.5 ${textMuted}`}>
                     {modalMode === 'edit' ? 'Change Password (Optional)' : 'Password'}
                   </label>
-                  <input type="text" name="password" value={formData.password} onChange={handleFormChange} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? "Leave blank to keep" : "Enter password"} className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                  <div className="relative">
+                    <input type={showModalPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleFormChange} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? "Leave blank to keep" : "Enter password"} className={`w-full px-3 py-2 pr-9 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                    <button type="button" onClick={() => setShowModalPassword(!showModalPassword)} className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${textMuted} hover:${textMain} transition-colors`}>
+                      {showModalPassword ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className={`block text-[11px] font-bold uppercase mb-1.5 ${textMuted}`}>
                     {modalMode === 'edit' ? 'Confirm New Password' : 'Confirm Password'}
                   </label>
-                  <input type="text" name="confirm_password" value={formData.confirm_password} onChange={handleFormChange} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? "Leave blank to keep" : "Confirm password"} className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                  <input type={showModalPassword ? "text" : "password"} name="confirm_password" value={formData.confirm_password} onChange={handleFormChange} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? "Leave blank to keep" : "Confirm password"} className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
                 </div>
               </div>
+
               <div className={`pt-3 flex justify-end gap-2 mt-2 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
                 <button type="button" onClick={closeModal} className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors ${isDarkMode ? 'text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10' : 'text-gray-600 bg-gray-100 hover:bg-gray-200'}`}>
                   Cancel
                 </button>
-                <button type="submit" disabled={isSubmitting} className={`px-5 py-2 rounded-lg font-bold text-xs text-white shadow-lg border border-white/10 ${theme.primary}`}>
+                <button type="submit" disabled={isSubmitting} className={`px-5 py-2 rounded-lg font-bold text-xs text-white shadow-lg border border-white/10 ${theme.primary} disabled:opacity-50`}>
                   {isSubmitting ? 'Saving...' : 'Save'}
                 </button>
               </div>
@@ -401,8 +424,9 @@ function AddSupervisor() {
         </div>
       )}
 
+      {/* CONFIRM DELETE MODAL */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
           <div className={`rounded-2xl shadow-2xl w-full max-w-[300px] flex flex-col p-6 text-center items-center border border-white/10 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
             <div className="w-12 h-12 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center mb-4 border border-red-500/30">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -415,13 +439,39 @@ function AddSupervisor() {
               <button onClick={() => setIsDeleteModalOpen(false)} className={`py-2 rounded-lg font-bold text-xs transition-colors flex-1 ${isDarkMode ? 'text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10' : 'text-gray-600 bg-gray-100 hover:bg-gray-200'}`}>
                 Cancel
               </button>
-              <button onClick={handleDeleteConfirm} className="py-2 rounded-lg font-bold text-xs text-white shadow-lg flex-1 bg-red-600 hover:bg-red-500">
-                Delete
+              <button onClick={handleDeleteConfirm} disabled={isSubmitting} className="py-2 rounded-lg font-bold text-xs text-white shadow-lg flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50">
+                {isSubmitting ? '...' : 'Delete'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* FEEDBACK MODAL (Replaces regular browser alerts for a smooth experience) */}
+      {feedback.show && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-fade-in">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-[320px] flex flex-col p-6 text-center items-center border ${isDarkMode ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'}`}>
+            {feedback.type === 'error' ? (
+              <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/30 text-red-500 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+              </div>
+            )}
+            <h3 className={`text-lg font-bold mb-2 ${textMain}`}>
+              {feedback.type === 'error' ? 'Oops! Action Failed' : 'Success!'}
+            </h3>
+            <p className={`text-[12px] mb-6 leading-relaxed ${textMuted}`}>{feedback.message}</p>
+            <button onClick={closeFeedbackModal} className={`w-full py-2.5 rounded-xl font-bold text-xs transition-colors shadow-sm ${feedback.type === 'error' ? 'bg-gray-800 text-white hover:bg-black' : `${theme.primary} text-white`}`}>
+              Okay, Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }`}</style>
     </div>
   );
 }

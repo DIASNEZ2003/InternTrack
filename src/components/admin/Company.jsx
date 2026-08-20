@@ -36,10 +36,11 @@ function Company() {
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Form State
+  // Form & Feedback States
   const [formData, setFormData] = useState({
     name: '', address: '', capacity: '', required_hours: '', logo_url: ''
   });
+  const [feedback, setFeedback] = useState({ show: false, type: '', message: '' });
 
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [isSearchingAddress, setIsSearchingAddress] = useState(false);
@@ -68,9 +69,7 @@ function Company() {
       setDepartment(adminDept);
 
       const { data: companiesData } = await supabase.from('companies').select('*').eq('department', adminDept).order('created_at', { ascending: false });
-      
       const { data: studentsData } = await supabase.from('profiles').select('id, first_name, last_name, company_id, avatar_url, company_status').eq('department', adminDept).eq('role', 'student');
-      
       const { data: supervisorsData } = await supabase.from('profiles').select('id, first_name, last_name, company_id, avatar_url').eq('department', adminDept).eq('role', 'supervisor');
 
       setCompanies(companiesData || []);
@@ -100,7 +99,6 @@ function Company() {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&countrycodes=ph&format=json&addressdetails=1&limit=5`);
       const data = await response.json();
       
-      // FIX: Ensure data is valid to prevent crashes
       if (!Array.isArray(data)) {
         setAddressSuggestions([]);
         return;
@@ -126,6 +124,10 @@ function Company() {
     setShowSuggestions(false);
     setAddressSuggestions([]);
   };
+
+  // FIX: Added the missing handleFormChange function that caused the white screen crash!
+  const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const closeFeedbackModal = () => setFeedback({ show: false, type: '', message: '' });
 
   const getThemeColors = (deptCode) => {
     switch (deptCode) {
@@ -158,13 +160,12 @@ function Company() {
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
       setFormData(prev => ({ ...prev, logo_url: publicUrl }));
     } catch (error) {
-      alert('Error uploading image: ' + error.message);
+      setFeedback({ show: true, type: 'error', message: 'Error uploading image: ' + error.message });
     } finally {
       setIsUploading(false);
     }
   };
 
-  // FIX: Added `|| ''` to prevent null references causing white screen crashes
   const openCompanyModal = (mode, company = null) => {
     setModalMode(mode);
     setShowSuggestions(false);
@@ -173,8 +174,8 @@ function Company() {
       setFormData({ 
         name: company.name || '', 
         address: company.address || '', 
-        capacity: company.capacity || '', 
-        required_hours: company.required_hours || '', 
+        capacity: company.capacity ?? '', 
+        required_hours: company.required_hours ?? '', 
         logo_url: company.logo_url || '' 
       });
       setActiveCompanyId(company.id);
@@ -200,12 +201,18 @@ function Company() {
 
       if (modalMode === 'add') {
         await supabase.from('companies').insert([payload]);
+        setFeedback({ show: true, type: 'success', message: 'Company added successfully!' });
       } else {
         await supabase.from('companies').update(payload).eq('id', activeCompanyId);
+        setFeedback({ show: true, type: 'success', message: 'Company updated successfully!' });
       }
       await fetchData();
       setIsCompanyModalOpen(false);
-    } catch (error) { alert('Failed: ' + error.message); } finally { setIsSubmitting(false); }
+    } catch (error) { 
+      setFeedback({ show: true, type: 'error', message: 'Failed to save: ' + error.message });
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -215,7 +222,12 @@ function Company() {
       await supabase.from('companies').delete().eq('id', companyToDelete.id);
       setCompanies(companies.filter(c => c.id !== companyToDelete.id));
       setIsDeleteModalOpen(false);
-    } catch (error) { alert('Failed to delete.'); } finally { setIsSubmitting(false); }
+      setFeedback({ show: true, type: 'success', message: 'Company successfully deleted.' });
+    } catch (error) { 
+      setFeedback({ show: true, type: 'error', message: 'Failed to delete company: ' + error.message });
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const openAssignModal = (company) => { 
@@ -232,7 +244,12 @@ function Company() {
       await supabase.from('profiles').update({ company_id: selectedCompanyForAssign.id, company_status: 'active' }).eq('id', studentToAssign);
       await fetchData();
       setIsAssignModalOpen(false);
-    } catch (error) { alert('Failed: ' + error.message); } finally { setIsSubmitting(false); }
+      setFeedback({ show: true, type: 'success', message: 'Student successfully assigned!' });
+    } catch (error) { 
+      setFeedback({ show: true, type: 'error', message: 'Failed to assign: ' + error.message });
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const handleAcceptRequest = async (studentId) => {
@@ -241,7 +258,7 @@ function Company() {
       await supabase.from('profiles').update({ company_status: 'active' }).eq('id', studentId);
       await fetchData();
     } catch (error) {
-      alert("Failed to accept: " + error.message);
+      setFeedback({ show: true, type: 'error', message: "Failed to accept: " + error.message });
     } finally {
       setProcessingId(null);
     }
@@ -253,13 +270,12 @@ function Company() {
       await supabase.from('profiles').update({ company_id: null, company_status: 'unassigned' }).eq('id', studentId);
       await fetchData();
     } catch (error) {
-      alert("Failed to decline: " + error.message);
+      setFeedback({ show: true, type: 'error', message: "Failed to decline: " + error.message });
     } finally {
       setProcessingId(null);
     }
   };
 
-  // FIX: Include legacy assigned students who do not have an explicit "active" status yet
   const getAssignedStudents = (companyId) => students.filter(s => 
     String(s.company_id) === String(companyId) && (s.company_status === 'active' || !s.company_status)
   );
@@ -268,7 +284,6 @@ function Company() {
     String(s.company_id) === String(companyId) && s.company_status === 'pending'
   );
   
-  // FIX: Allow students missing statuses entirely to show up in Unassigned dropdown
   const getUnassignedStudents = () => students.filter(s => 
     !s.company_id || s.company_status === 'unassigned' || !s.company_status
   );
@@ -282,10 +297,8 @@ function Company() {
     return (company.name || '').toLowerCase().includes(query) || (company.address || '').toLowerCase().includes(query);
   });
 
-  // Calculate pending requests across all companies
   const allPendingRequests = students.filter(s => s.company_status === 'pending');
   const filteredPendingRequests = allPendingRequests.filter(s => 
-    // FIX: Fallbacks to empty string prevent crashes when searching accounts missing names
     `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(pendingSearchQuery.toLowerCase())
   );
 
@@ -567,13 +580,13 @@ function Company() {
 
               <div>
                 <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${textMuted}`}>Company Name</label>
-                <input type="text" name="name" value={formData.name} onChange={handleFormChange} required placeholder="Enter company name" className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                <input type="text" name="name" value={formData.name || ''} onChange={handleFormChange} required placeholder="Enter company name" className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
               </div>
 
               <div className="relative">
                 <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${textMuted}`}>Address / Location</label>
                 <div className="relative">
-                  <input type="text" name="address" value={formData.address} onChange={handleFormChange} onFocus={() => setShowSuggestions(true)} placeholder="Enter address" autoComplete="off" required className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                  <input type="text" name="address" value={formData.address || ''} onChange={handleFormChange} onFocus={() => setShowSuggestions(true)} placeholder="Enter address" autoComplete="off" required className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
                   {isSearchingAddress && <div className="absolute right-3 top-1/2 -translate-y-1/2"><div className={`w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin ${theme.border}`}></div></div>}
                 </div>
                 {showSuggestions && addressSuggestions.length > 0 && (
@@ -590,11 +603,11 @@ function Company() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${textMuted}`}>Student Count</label>
-                  <input type="number" name="capacity" value={formData.capacity} onChange={handleFormChange} min="1" required placeholder="Slots" className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                  <input type="number" name="capacity" value={formData.capacity ?? ''} onChange={handleFormChange} min="1" required placeholder="Slots" className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
                 </div>
                 <div>
                   <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${textMuted}`}>Required Hours</label>
-                  <input type="number" name="required_hours" value={formData.required_hours} onChange={handleFormChange} min="1" required placeholder="Enter hours" className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
+                  <input type="number" name="required_hours" value={formData.required_hours ?? ''} onChange={handleFormChange} min="1" required placeholder="Enter hours" className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
                 </div>
               </div>
 
@@ -682,6 +695,30 @@ function Company() {
               <button onClick={() => setIsDeleteModalOpen(false)} className={`py-2 rounded-lg font-bold text-xs transition-colors flex-1 ${isDarkMode ? 'text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10' : 'text-gray-600 bg-gray-100 hover:bg-gray-200'}`}>Cancel</button>
               <button onClick={handleDeleteConfirm} disabled={isSubmitting} className={`py-2 rounded-lg font-bold text-xs text-white shadow-lg border border-red-500/50 flex-1 transition-colors bg-red-600 hover:bg-red-500 disabled:opacity-50`}>{isSubmitting ? '...' : 'Delete'}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- FEEDBACK MODAL --- */}
+      {feedback.show && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-fade-in">
+          <div className={`rounded-2xl shadow-2xl w-full max-w-[320px] flex flex-col p-6 text-center items-center border ${isDarkMode ? 'bg-gray-900 border-white/10' : 'bg-white border-gray-200'}`}>
+            {feedback.type === 'error' ? (
+              <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/30 text-red-500 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+              </div>
+            )}
+            <h3 className={`text-lg font-bold mb-2 ${textMain}`}>
+              {feedback.type === 'error' ? 'Something went wrong' : 'Success!'}
+            </h3>
+            <p className={`text-[12px] mb-6 leading-relaxed ${textMuted}`}>{feedback.message}</p>
+            <button onClick={closeFeedbackModal} className={`w-full py-2.5 rounded-xl font-bold text-xs transition-colors shadow-sm ${feedback.type === 'error' ? 'bg-gray-800 text-white hover:bg-black' : `${theme.primary} text-white`}`}>
+              Okay, got it
+            </button>
           </div>
         </div>
       )}
