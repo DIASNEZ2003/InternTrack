@@ -68,7 +68,7 @@ function Sidebar({ onSelectTab, activeTab, isOpen, onClose, highlightCompany }) 
   };
 
   const theme = getThemeColors(profile.department);
-  const bgSidebar = isDarkMode ? 'bg-gray-900/80 backdrop-blur-xl border border-white/10' : 'bg-white';
+  const bgSidebar = isDarkMode ? 'bg-gray-900/90 backdrop-blur-xl border border-white/10' : 'bg-white';
   const iconIdle = isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-900';
   const divider = isDarkMode ? 'bg-white/10' : 'bg-gray-100';
 
@@ -82,7 +82,8 @@ function Sidebar({ onSelectTab, activeTab, isOpen, onClose, highlightCompany }) 
 
   return (
     <>
-      {isOpen && <div onClick={onClose} className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300" />}
+      {isOpen && <div onClick={onClose} className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity duration-300" />}
+      
       <aside className={`absolute top-12 bottom-4 left-4 w-[76px] shadow-2xl rounded-[24px] flex flex-col items-center py-5 z-50 select-none transition-all duration-300 ease-in-out ${bgSidebar} ${isOpen ? 'translate-x-0' : '-translate-x-[120px] md:translate-x-0'}`}>
         <input type="file" accept="image/*" ref={fileInputRef} onChange={uploadAvatar} className="hidden" />
 
@@ -91,7 +92,6 @@ function Sidebar({ onSelectTab, activeTab, isOpen, onClose, highlightCompany }) 
             {isUploading ? <div className={`w-5 h-5 border-2 border-t-transparent rounded-full animate-spin ${theme.border}`}></div> : profile.avatar_url ? <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" /> : <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
             {!isUploading && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"><svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div>}
           </div>
-          <div className="absolute left-[64px] top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs font-bold rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 shadow-xl whitespace-nowrap z-50 pointer-events-none">{profile.first_name ? `Change Picture` : 'Profile'}</div>
         </div>
 
         <div className={`w-8 h-px my-4 shrink-0 rounded-full transition-opacity duration-300 ${divider} ${highlightCompany ? 'opacity-20' : ''}`} />
@@ -103,22 +103,31 @@ function Sidebar({ onSelectTab, activeTab, isOpen, onClose, highlightCompany }) 
             
             return (
               <div key={item.name} className={`relative group transition-opacity duration-300 ${isDimmed ? 'opacity-20 pointer-events-none' : ''}`}>
-                <div onClick={() => onSelectTab && onSelectTab(item.name)} className={`w-12 h-12 flex items-center justify-center rounded-2xl cursor-pointer transition-all shrink-0 ${isHighlighted ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-gray-900 bg-amber-400/20 text-amber-400 z-50 relative' : activeTab === item.name ? `${theme.activeTab} shadow-sm border border-white/5` : iconIdle}`}>
+                <div 
+                  onClick={() => onSelectTab && onSelectTab(item.name)} 
+                  className={`w-12 h-12 flex items-center justify-center rounded-2xl cursor-pointer transition-all shrink-0 ${
+                    isHighlighted 
+                      ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-gray-900 bg-amber-400/20 text-amber-400 z-50 relative animate-pulse' 
+                      : activeTab === item.name 
+                        ? `${theme.activeTab} shadow-sm border border-white/5` 
+                        : iconIdle
+                  }`}
+                >
                   <svg className="w-[22px] h-[22px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={activeTab === item.name || isHighlighted ? "2.5" : "2"} d={item.icon} /></svg>
                 </div>
                 
-                {/* Standard Hover Tooltip */}
+                {/* Standard Tooltip */}
                 {!isHighlighted && (
                   <div className="absolute left-[64px] top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs font-bold rounded-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 shadow-xl whitespace-nowrap z-50 pointer-events-none">{item.name}</div>
                 )}
 
-                {/* ONBOARDING HINT ARROW */}
+                {/* ONBOARDING HINT ARROW - Fixed: Hidden on mobile when drawer is closed */}
                 {isHighlighted && (
-                  <div className="absolute left-[70px] top-1/2 -translate-y-1/2 flex items-center animate-point-left z-[100] pointer-events-none">
+                  <div className={`absolute left-[70px] top-1/2 -translate-y-1/2 items-center animate-point-left z-[100] pointer-events-none ${isOpen ? 'flex' : 'hidden md:flex'}`}>
                     <svg className="w-8 h-8 text-amber-400 drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M10 19l-7-7m0 0l7-7m-7-7h18" />
                     </svg>
-                    <div className="bg-amber-400 text-black text-[13px] font-black px-4 py-2 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.4)] whitespace-nowrap ml-1 uppercase tracking-wider">
+                    <div className="bg-amber-400 text-black text-[12px] font-black px-3.5 py-1.5 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.6)] whitespace-nowrap ml-1 uppercase tracking-wider">
                       Step 1: Choose Company
                     </div>
                   </div>

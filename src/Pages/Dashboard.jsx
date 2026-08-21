@@ -17,7 +17,7 @@ function Dashboard() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [profile, setProfile] = useState(null); // Changed to null to check loading state easily
+  const [profile, setProfile] = useState(null); 
 
   // GLOBAL DARK MODE LISTENER
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
@@ -61,18 +61,44 @@ function Dashboard() {
   return (
     <div className={`w-screen h-screen ${getGradientByDepartment(profile?.department)} overflow-hidden font-sans relative transition-colors duration-500`}>
       
-      {/* ONBOARDING BACKDROP OVERLAY */}
+      {/* ONBOARDING BACKDROP OVERLAY (z-45) */}
       {showTutorial && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[45] animate-fade-in pointer-events-auto" />
       )}
 
-      <div className="absolute top-0 left-0 w-full h-14 flex items-center justify-between px-4 md:px-6 z-40 select-none">
-        <div className="flex items-center gap-3 text-white/95 drop-shadow-sm">
-          <button onClick={() => setIsMobileOpen(true)} className="md:hidden p-1.5 rounded-lg hover:bg-white/20 transition-colors focus:outline-none">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
+      {/* TOP HEADER 
+          FIX: Dynamically changed z-index to z-[50] when the tutorial is active so it pops OUT of the blur! 
+      */}
+      <div className={`absolute top-0 left-0 w-full h-14 flex items-center justify-between px-4 md:px-6 select-none transition-all ${showTutorial && !isMobileOpen ? 'z-[50]' : 'z-40'}`}>
+        <div className="flex items-center gap-3 text-white/95 drop-shadow-sm relative">
+          
+          {/* HAMBURGER BUTTON (Highlighted on mobile when onboarding is active) */}
+          <div className="relative">
+            <button 
+              onClick={() => setIsMobileOpen(true)} 
+              className={`md:hidden p-1.5 rounded-lg transition-all duration-300 focus:outline-none ${
+                showTutorial && !isMobileOpen 
+                  ? 'bg-amber-400 text-black ring-4 ring-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.8)] relative animate-pulse' 
+                  : 'hover:bg-white/20'
+              }`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+
+            {/* MOBILE ONBOARDING HINT (Only appears on mobile when sidebar is closed) */}
+            {showTutorial && !isMobileOpen && (
+              <div className="md:hidden absolute left-0 top-12 flex flex-col items-start animate-point-down z-[60] pointer-events-none">
+                <div className="flex items-center gap-1 bg-amber-400 text-black text-[11px] font-black px-3 py-1.5 rounded-lg shadow-[0_0_20px_rgba(251,191,36,0.6)] whitespace-nowrap uppercase tracking-wider">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                  Tap Menu to Choose Company
+                </div>
+              </div>
+            )}
+          </div>
+
           <span className="font-extrabold tracking-wide text-[14px] uppercase mt-0.5">InternTrack</span>
         </div>
+
         {!authLoading && isAuthenticated && profile?.first_name && (
           <div className="flex items-center gap-3 animate-fade-in mr-2">
             <span className="text-sm font-medium tracking-wide hidden sm:block drop-shadow-sm text-white">
@@ -93,7 +119,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* SIDEBAR NOW RECEIVES THE highlightCompany PROP */}
+      {/* SIDEBAR */}
       <Sidebar 
         activeTab={activeTab} 
         onSelectTab={(tabName) => { setActiveTab(tabName); setIsMobileOpen(false); }} 
@@ -123,7 +149,15 @@ function Dashboard() {
         </main>
       </div>
 
-      <style>{`.animate-fade-in { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { from { opacity: 0; transform: scale(0.98) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } } .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }`}</style>
+      <style>{`
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; } 
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } } 
+        @keyframes pointDown { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+        .animate-point-down { animation: pointDown 1.2s ease-in-out infinite; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; } 
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } 
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }
+      `}</style>
     </div>
   );
 }
