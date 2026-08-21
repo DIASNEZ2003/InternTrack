@@ -236,7 +236,6 @@ Respond strictly with a pure JSON object following this exact schema without any
       let reportData = { weekNumber: '', inclusiveDates: '', activities: '', learnings: '', firstName: profile?.first_name || '', lastName: profile?.last_name || '' };
       const text = await data.text();
 
-      // Read the clean JSON data from Supabase, or extract HTML if it's an old file
       if (journal.file_name.endsWith('.json')) {
         reportData = { ...reportData, ...JSON.parse(text) };
       } else {
@@ -257,13 +256,11 @@ Respond strictly with a pure JSON object following this exact schema without any
         reportData.inclusiveDates = journal.inclusive_dates;
       }
 
-      // Convert line breaks into separate paragraphs for Word
       const createParagraphs = (textStr) => {
           if (!textStr) return [new Paragraph({ text: "" })];
           return textStr.split('\n').map(line => new Paragraph({ text: line, indent: { firstLine: 720 }, spacing: { after: 120 } }));
       };
 
-      // Construct a mathematically perfect, native Word Document using docx
       const doc = new Document({
         creator: "InternTrack",
         title: `Weekly Report - Week ${reportData.weekNumber}`,
@@ -275,7 +272,7 @@ Respond strictly with a pure JSON object following this exact schema without any
               alignment: AlignmentType.CENTER,
               heading: HeadingLevel.HEADING_2,
             }),
-            new Paragraph({ text: "" }), // Spacing
+            new Paragraph({ text: "" }), 
             new Paragraph({
               children: [
                 new TextRun({ text: "Student's Name: ", bold: true }),
@@ -290,7 +287,7 @@ Respond strictly with a pure JSON object following this exact schema without any
                 new TextRun(`${reportData.inclusiveDates}`),
               ]
             }),
-            new Paragraph({ text: "" }), // Spacing
+            new Paragraph({ text: "" }), 
             new Paragraph({
               children: [new TextRun({ text: "Activities:", bold: true, size: 24 })],
               spacing: { before: 240, after: 120 }
@@ -305,7 +302,6 @@ Respond strictly with a pure JSON object following this exact schema without any
         }]
       });
 
-      // Generate the binary DOCX blob and force the browser to download it
       const blob = await Packer.toBlob(doc);
       const dlName = journal.file_name.replace(/\.(json|doc|docx)$/i, '') + '.docx';
       const url = window.URL.createObjectURL(blob);
@@ -342,8 +338,8 @@ Respond strictly with a pure JSON object following this exact schema without any
   });
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative">
-      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border ${bgCard}`}>
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border shrink-0 ${bgCard}`}>
         <div className="relative w-full max-w-sm flex-1">
           <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input type="text" placeholder="Search reports by name, dates, or week..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-9 pr-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
@@ -366,47 +362,92 @@ Respond strictly with a pure JSON object following this exact schema without any
             <p className={`text-xs ${textMuted}`}>Click "Generate Report" to compile logs into a document.</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-16 text-center ${textMuted}`}>Week</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Document</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Dates</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredJournals.map((item) => (
-                  <tr key={item.id} className={`transition-colors group ${bgHover}`}>
-                    <td className="py-2 px-4 text-center">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>{item.week_number}</span>
-                    </td>
-                    <td className="py-2 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
-                        </div>
-                        <div>
-                          {/* Force UI to look like a docx even though we save it intelligently */}
-                          <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{item.file_name.replace(/\.json$/i, '.docx')}</p>
-                          <p className={`text-[11px] ${textMuted}`}>{new Date(item.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className={`py-2 px-4 text-[12px] font-medium ${textMuted}`}>{item.inclusive_dates}</td>
-                    <td className="py-2 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => handleOpenDocument(item, 'view')} disabled={isFetchingFile} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white bg-white/5 hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50'}`}>View</button>
-                        <button onClick={() => handleOpenDocument(item, 'edit')} disabled={isFetchingFile} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20' : 'text-gray-500 hover:text-amber-600 bg-gray-50 hover:bg-amber-50'}`}>Edit</button>
-                        <button onClick={() => handleDownload(item)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors border ${isDarkMode ? 'border-white/10 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-gray-200 text-gray-600 hover:text-emerald-700 bg-white hover:bg-emerald-50'}`}>Download</button>
-                        <button onClick={() => {setJournalToDelete(item); setIsDeleteModalOpen(true);}} className={`p-1.5 ml-1 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400 hover:bg-white/5' : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                      </div>
-                    </td>
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* 🖥️ DESKTOP VIEW (TABLE) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-16 text-center ${textMuted}`}>Week</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Document</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Dates</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {filteredJournals.map((item) => (
+                    <tr key={item.id} className={`transition-colors group ${bgHover}`}>
+                      <td className="py-2 px-4 text-center">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>{item.week_number}</span>
+                      </td>
+                      <td className="py-2 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
+                          </div>
+                          <div>
+                            <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{item.file_name.replace(/\.json$/i, '.docx')}</p>
+                            <p className={`text-[11px] ${textMuted}`}>{new Date(item.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className={`py-2 px-4 text-[12px] font-medium ${textMuted}`}>{item.inclusive_dates}</td>
+                      <td className="py-2 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => handleOpenDocument(item, 'view')} disabled={isFetchingFile} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white bg-white/5 hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50'}`}>View</button>
+                          <button onClick={() => handleOpenDocument(item, 'edit')} disabled={isFetchingFile} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20' : 'text-gray-500 hover:text-amber-600 bg-gray-50 hover:bg-amber-50'}`}>Edit</button>
+                          <button onClick={() => handleDownload(item)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors border ${isDarkMode ? 'border-white/10 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-gray-200 text-gray-600 hover:text-emerald-700 bg-white hover:bg-emerald-50'}`}>Download</button>
+                          <button onClick={() => {setJournalToDelete(item); setIsDeleteModalOpen(true);}} className={`p-1.5 ml-1 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400 hover:bg-white/5' : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 📱 MOBILE VIEW (CARDS) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {filteredJournals.map(item => (
+                <div key={item.id} className={`transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative overflow-hidden shadow-sm ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-gray-100'}`}>
+                  
+                  {/* Card Header */}
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
+                      </div>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`text-[13px] font-bold truncate ${textMain}`}>{item.file_name.replace(/\.json$/i, '.docx')}</span>
+                        <span className={`text-[11px] ${textMuted}`}>{new Date(item.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center justify-center shrink-0 w-7 h-7 rounded-md text-[11px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>W{item.week_number}</span>
+                  </div>
+
+                  <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}></div>
+
+                  {/* Dates */}
+                  <div className="flex flex-col">
+                    <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Inclusive Dates</span>
+                    <span className={`text-[12px] font-medium ${textMain}`}>{item.inclusive_dates}</span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className={`flex flex-wrap items-center justify-end gap-2 pt-2 mt-1 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                    <button onClick={() => handleOpenDocument(item, 'view')} disabled={isFetchingFile} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white bg-white/5 hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50'}`}>View</button>
+                    <button onClick={() => handleOpenDocument(item, 'edit')} disabled={isFetchingFile} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20' : 'text-gray-500 hover:text-amber-600 bg-gray-50 hover:bg-amber-50'}`}>Edit</button>
+                    <button onClick={() => handleDownload(item)} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors border ${isDarkMode ? 'border-white/10 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-gray-200 text-gray-600 hover:text-emerald-700 bg-white hover:bg-emerald-50'}`}>Download</button>
+                    <button onClick={() => {setJournalToDelete(item); setIsDeleteModalOpen(true);}} className={`justify-center inline-flex p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400 bg-white/5 hover:bg-red-500/10' : 'text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50'}`}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
       </div>

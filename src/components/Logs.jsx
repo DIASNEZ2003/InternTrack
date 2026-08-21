@@ -7,7 +7,7 @@ function Logs() {
   const [activities, setActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(''); // NEW SEARCH STATE
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Modal States
   const [activeItem, setActiveItem] = useState(null);
@@ -49,7 +49,7 @@ function Logs() {
         id: `log_${log.id}`,
         rawId: log.id,
         type: 'log',
-        title: log.category,
+        title: log.category || 'Daily Log',
         description: log.description,
         date: log.date,
         timestamp: new Date(log.created_at || log.date).getTime(),
@@ -61,7 +61,7 @@ function Logs() {
         id: `journal_${journal.id}`,
         rawId: journal.id,
         type: 'journal',
-        title: journal.file_name,
+        title: journal.file_name.replace(/\.json$/i, '.docx'),
         description: `Generated Weekly Report • Week ${journal.week_number}`,
         date: new Date(journal.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
         timestamp: new Date(journal.created_at).getTime(),
@@ -135,7 +135,7 @@ function Logs() {
       const url = window.URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = item.rawData.file_name;
+      a.download = item.rawData.file_name.replace(/\.json$/i, '.docx');
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -152,34 +152,44 @@ function Logs() {
       if (error) throw error;
 
       const text = await data.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'text/html');
-
+      let activitiesText = '';
+      let learningsText = '';
       let extractedLogs = [];
-      const table = doc.querySelector('table');
-      if (table) {
-        const rows = table.querySelectorAll('tr');
-        rows.forEach(row => {
-          const cells = row.querySelectorAll('td');
-          if (cells.length >= 2) {
-            extractedLogs.push({
-              date: cells[0].textContent.trim(),
-              description: cells[1].innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim()
-            });
+
+      if (journal.file_name.endsWith('.json')) {
+        const parsed = JSON.parse(text);
+        activitiesText = parsed.activities || '';
+        learningsText = parsed.learnings || '';
+        
+        extractedLogs = [{ date: 'Activities', description: activitiesText }];
+      } else {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+
+        const table = doc.querySelector('table');
+        if (table) {
+          const rows = table.querySelectorAll('tr');
+          rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 2) {
+              extractedLogs.push({
+                date: cells[0].textContent.trim(),
+                description: cells[1].innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim()
+              });
+            }
+          });
+        }
+
+        const headings = doc.querySelectorAll('h3');
+        headings.forEach(h => {
+          if (h.textContent.includes('Learning Experience')) {
+            let nextEl = h.nextElementSibling;
+            if (nextEl && nextEl.tagName === 'P') {
+              learningsText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim();
+            }
           }
         });
       }
-
-      let learningsText = '';
-      const headings = doc.querySelectorAll('h3');
-      headings.forEach(h => {
-        if (h.textContent.includes('Learning Experience')) {
-          let nextEl = h.nextElementSibling;
-          if (nextEl && nextEl.tagName === 'P') {
-            learningsText = nextEl.innerHTML.replace(/<br\s*[\/]?>/gi, '\n').trim();
-          }
-        }
-      });
 
       setJournalDocData({
         weekNumber: journal.week_number,
@@ -187,7 +197,9 @@ function Logs() {
         fileName: journal.file_name,
         activityLogs: extractedLogs,
         learnings: learningsText,
-        filePath: journal.file_path
+        filePath: journal.file_path,
+        isJsonFormat: journal.file_name.endsWith('.json'),
+        rawActivitiesText: activitiesText
       });
       setModalType(targetModal);
     } catch (error) {
@@ -226,17 +238,35 @@ function Logs() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Unauthorized");
 
-      let activitiesTableHtml = `<table style="width:100%; border-collapse: collapse; font-family:Arial; font-size:13px; margin-bottom: 20px;"><tbody>`;
-      journalDocData.activityLogs.forEach(log => {
-        activitiesTableHtml += `<tr><td style="border: 1px solid black; padding: 6px; vertical-align: top; width: 100px; font-weight: bold;">${log.date}</td><td style="border: 1px solid black; padding: 6px; vertical-align: top;">${log.description.replace(/\n/g, '<br/>')}</td></tr>`;
-      });
-      activitiesTableHtml += `</tbody></table>`;
+      let blob;
+      let contentType = '';
 
-      const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
-      const docHtml = `${header}<body><h2 style="text-align:center; font-family:Arial; font-size:16px;">WEEKLY PROGRESS REPORT</h2><p style="font-family:Arial; font-size:13px;"><b>Student's Name:</b> ${profile?.first_name} ${profile?.last_name}</p><p style="font-family:Arial; font-size:13px;"><b>Week #:</b> ${journalDocData.weekNumber} &nbsp;&nbsp;&nbsp;&nbsp; <b>Inclusive Dates:</b> ${journalDocData.inclusiveDates}</p><br/><h3 style="font-family:Arial; font-size:14px;">Activities:</h3>${activitiesTableHtml}<h3 style="font-family:Arial; font-size:14px;">Learning Experience:</h3><p style="font-family:Arial; font-size:13px; text-indent:2rem; line-height:1.6;">${journalDocData.learnings.replace(/\n/g, '<br/>')}</p></body></html>`;
+      if (journalDocData.isJsonFormat) {
+        const reportData = {
+          weekNumber: journalDocData.weekNumber,
+          inclusiveDates: journalDocData.inclusiveDates,
+          activities: journalDocData.rawActivitiesText,
+          learnings: journalDocData.learnings,
+          firstName: profile?.first_name || '',
+          lastName: profile?.last_name || ''
+        };
+        blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+        contentType = 'application/json';
+      } else {
+        let activitiesTableHtml = `<table style="width:100%; border-collapse: collapse; font-family:Arial; font-size:13px; margin-bottom: 20px;"><tbody>`;
+        journalDocData.activityLogs.forEach(log => {
+          activitiesTableHtml += `<tr><td style="border: 1px solid black; padding: 6px; vertical-align: top; width: 100px; font-weight: bold;">${log.date}</td><td style="border: 1px solid black; padding: 6px; vertical-align: top;">${log.description.replace(/\n/g, '<br/>')}</td></tr>`;
+        });
+        activitiesTableHtml += `</tbody></table>`;
 
-      const blob = new Blob(['\ufeff' + docHtml], { type: 'application/msword' });
-      const { error: uploadError } = await supabase.storage.from('journals').upload(journalDocData.filePath, blob, { contentType: 'application/msword', upsert: true });
+        const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>";
+        const docHtml = `${header}<body><h2 style="text-align:center; font-family:Arial; font-size:16px;">WEEKLY PROGRESS REPORT</h2><p style="font-family:Arial; font-size:13px;"><b>Student's Name:</b> ${profile?.first_name} ${profile?.last_name}</p><p style="font-family:Arial; font-size:13px;"><b>Week #:</b> ${journalDocData.weekNumber} &nbsp;&nbsp;&nbsp;&nbsp; <b>Inclusive Dates:</b> ${journalDocData.inclusiveDates}</p><br/><h3 style="font-family:Arial; font-size:14px;">Activities:</h3>${activitiesTableHtml}<h3 style="font-family:Arial; font-size:14px;">Learning Experience:</h3><p style="font-family:Arial; font-size:13px; text-indent:2rem; line-height:1.6;">${journalDocData.learnings.replace(/\n/g, '<br/>')}</p></body></html>`;
+
+        blob = new Blob(['\ufeff' + docHtml], { type: 'application/msword' });
+        contentType = 'application/msword';
+      }
+
+      const { error: uploadError } = await supabase.storage.from('journals').upload(journalDocData.filePath, blob, { contentType: contentType, upsert: true });
       if (uploadError) throw uploadError;
 
       const { error: dbError } = await supabase.from('saved_journals').update({
@@ -255,11 +285,11 @@ function Logs() {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
       
       {/* Top Action Bar / Search */}
-      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border ${bgCard}`}>
-        <div className="relative flex-1 max-w-sm">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border shrink-0 ${bgCard}`}>
+        <div className="relative flex-1 w-full max-w-sm">
           <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 
             type="text" 
@@ -271,7 +301,7 @@ function Logs() {
         </div>
       </div>
 
-      {/* Main Table View */}
+      {/* Main Container */}
       <div className={`flex-1 rounded-xl overflow-hidden flex flex-col relative border ${bgCard}`}>
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -283,84 +313,129 @@ function Logs() {
             <p className={`text-xs ${textMuted}`}>Try adjusting your search query.</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-16 text-center ${textMuted}`}>Type</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Title</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Description</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Date</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Status</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredActivities.map((activity) => (
-                  <tr key={activity.id} className={`transition-colors group ${bgHover}`}>
-                    
-                    {/* Icon Type Column */}
-                    <td className="py-2 px-4 text-center">
-                      <div className="flex justify-center items-center">
-                        {activity.type === 'journal' ? (
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
-                          </div>
-                        ) : (
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${theme.bgLight} ${theme.text} ${theme.border}`}>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Title Column */}
-                    <td className="py-2.5 px-4">
-                      <p className={`text-[13px] font-bold truncate max-w-[200px] ${textMain}`} title={activity.title}>
-                        {activity.title}
-                      </p>
-                    </td>
-
-                    {/* Description Column */}
-                    <td className="py-2.5 px-4">
-                      <p className={`text-[12px] truncate max-w-[250px] ${textMuted}`} title={activity.description}>
-                        {activity.description}
-                      </p>
-                    </td>
-
-                    {/* Date Column */}
-                    <td className="py-2.5 px-4">
-                      <p className={`text-[12px] font-medium ${textMuted}`}>{activity.date}</p>
-                    </td>
-
-                    {/* Status / Badge Column */}
-                    <td className="py-2.5 px-4 text-center">
-                      <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${activity.type === 'journal' ? (isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700') : (isDarkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
-                        {activity.badge}
-                      </span>
-                    </td>
-
-                    {/* Actions Column */}
-                    <td className="py-2.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => handleOpenView(activity)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white bg-white/5 hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50'}`}>
-                          View
-                        </button>
-                        <button onClick={() => handleOpenEdit(activity)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20' : 'text-gray-500 hover:text-amber-600 bg-gray-50 hover:bg-amber-50'}`}>
-                          Edit
-                        </button>
-                        {activity.type === 'journal' && (
-                          <button onClick={() => handleDownload(activity)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors border ${isDarkMode ? 'border-white/10 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-gray-200 text-gray-600 hover:text-emerald-700 bg-white hover:bg-emerald-50'}`}>
-                            Download
-                          </button>
-                        )}
-                      </div>
-                    </td>
-
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* 🖥️ DESKTOP VIEW (TABLE) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-16 text-center ${textMuted}`}>Type</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Title</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Description</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Date</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Status</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {filteredActivities.map((activity) => (
+                    <tr key={activity.id} className={`transition-colors group ${bgHover}`}>
+                      
+                      <td className="py-2 px-4 text-center">
+                        <div className="flex justify-center items-center">
+                          {activity.type === 'journal' ? (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
+                            </div>
+                          ) : (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${theme.bgLight} ${theme.text} ${theme.border}`}>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-2.5 px-4">
+                        <p className={`text-[13px] font-bold truncate max-w-[200px] ${textMain}`} title={activity.title}>
+                          {activity.title}
+                        </p>
+                      </td>
+
+                      <td className="py-2.5 px-4">
+                        <p className={`text-[12px] truncate max-w-[250px] ${textMuted}`} title={activity.description}>
+                          {activity.description}
+                        </p>
+                      </td>
+
+                      <td className="py-2.5 px-4">
+                        <p className={`text-[12px] font-medium ${textMuted}`}>{activity.date}</p>
+                      </td>
+
+                      <td className="py-2.5 px-4 text-center">
+                        <span className={`inline-flex text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${activity.type === 'journal' ? (isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700') : (isDarkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                          {activity.badge}
+                        </span>
+                      </td>
+
+                      <td className="py-2.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => handleOpenView(activity)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white bg-white/5 hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50'}`}>
+                            View
+                          </button>
+                          <button onClick={() => handleOpenEdit(activity)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20' : 'text-gray-500 hover:text-amber-600 bg-gray-50 hover:bg-amber-50'}`}>
+                            Edit
+                          </button>
+                          {activity.type === 'journal' && (
+                            <button onClick={() => handleDownload(activity)} className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors border ${isDarkMode ? 'border-white/10 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-gray-200 text-gray-600 hover:text-emerald-700 bg-white hover:bg-emerald-50'}`}>
+                              Download
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 📱 MOBILE VIEW (CARDS) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {filteredActivities.map((activity) => (
+                <div key={activity.id} className={`transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative shadow-sm ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                  
+                  <div className="flex items-start gap-3 w-full">
+                    <div className="flex justify-center items-center shrink-0">
+                      {activity.type === 'journal' ? (
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
+                        </div>
+                      ) : (
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${theme.bgLight} ${theme.text} ${theme.border}`}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className={`text-[13px] font-bold truncate ${textMain}`} title={activity.title}>{activity.title}</span>
+                      <span className={`text-[11px] ${textMuted}`}>{activity.date}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>Description</span>
+                    <span className={`text-[12px] font-medium line-clamp-2 ${textMain}`} title={activity.description}>{activity.description || 'No description'}</span>
+                  </div>
+
+                  <div className="flex items-center">
+                    <span className={`inline-flex text-[10px] font-bold px-2.5 py-1 rounded-md whitespace-nowrap ${activity.type === 'journal' ? (isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700') : (isDarkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-200 text-gray-700')}`}>
+                      {activity.badge}
+                    </span>
+                  </div>
+
+                  <div className={`flex flex-wrap items-center justify-end gap-2 pt-2 mt-1 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                    <button onClick={() => handleOpenView(activity)} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white bg-white/5 hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50'}`}>View</button>
+                    <button onClick={() => handleOpenEdit(activity)} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20' : 'text-gray-500 hover:text-amber-600 bg-gray-50 hover:bg-amber-50'}`}>Edit</button>
+                    {activity.type === 'journal' && (
+                      <button onClick={() => handleDownload(activity)} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors border ${isDarkMode ? 'border-white/10 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20' : 'border-gray-200 text-gray-600 hover:text-emerald-700 bg-white hover:bg-emerald-50'}`}>Download</button>
+                    )}
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
       </div>
@@ -428,35 +503,48 @@ function Logs() {
             <div className="flex-1 overflow-y-auto p-4 flex justify-center custom-scrollbar">
               <div className={`shadow-sm border p-8 sm:p-12 shrink-0 ${isDarkMode ? 'bg-gray-800 border-white/10' : 'bg-white border-gray-200'}`} style={{ width: '100%', maxWidth: '750px', minHeight: '900px', fontFamily: 'Arial, sans-serif' }}>
                 <h1 className={`text-center text-base font-bold uppercase mb-6 ${textMain}`}>WEEKLY PROGRESS REPORT</h1>
-                <div className={`grid grid-cols-2 gap-x-2 gap-y-3 mb-8 text-[13px] ${textMain}`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-3 mb-8 text-[13px] ${textMain}`}>
                   <div className="flex"><span className="w-28">Student’s Name:</span><strong className="font-bold flex-1">{profile?.first_name} {profile?.last_name}</strong></div>
-                  <div></div>
+                  <div className="hidden sm:block"></div>
                   <div className="flex items-center"><span className="w-28">Week #:</span>
                     <input type="text" value={journalDocData.weekNumber} onChange={(e) => setJournalDocData({ ...journalDocData, weekNumber: e.target.value })} readOnly={modalType === 'view_journal'} className={`font-bold w-10 border-b outline-none transition-colors ${modalType === 'view_journal' ? 'border-transparent bg-transparent' : `border-gray-400 bg-transparent ${theme.ring}`}`} />
                   </div>
-                  <div className="flex items-center justify-end"><span className="mr-2">Inclusive Dates:</span>
-                    <input type="text" value={journalDocData.inclusiveDates} onChange={(e) => setJournalDocData({ ...journalDocData, inclusiveDates: e.target.value })} readOnly={modalType === 'view_journal'} className={`font-bold w-[160px] border-b outline-none text-right transition-colors ${modalType === 'view_journal' ? 'border-transparent bg-transparent' : `border-gray-400 bg-transparent ${theme.ring}`}`} />
+                  <div className="flex items-center sm:justify-end"><span className="mr-2">Inclusive Dates:</span>
+                    <input type="text" value={journalDocData.inclusiveDates} onChange={(e) => setJournalDocData({ ...journalDocData, inclusiveDates: e.target.value })} readOnly={modalType === 'view_journal'} className={`font-bold w-full sm:w-[160px] border-b outline-none sm:text-right transition-colors ${modalType === 'view_journal' ? 'border-transparent bg-transparent' : `border-gray-400 bg-transparent ${theme.ring}`}`} />
                   </div>
                 </div>
 
                 <div className="mb-5">
                   <h3 className={`text-[13px] mb-2 font-normal ${textMain}`}>Activities:</h3>
-                  <table className={`w-full border-collapse ${textMain}`}>
-                    <tbody>
-                      {journalDocData.activityLogs && journalDocData.activityLogs.length > 0 ? (
-                        journalDocData.activityLogs.map((log, idx) => (
-                          <tr key={idx}>
-                            <td className={`p-1.5 border w-24 align-top text-[12px] ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                              {modalType === 'view_journal' ? (<strong>{log.date}</strong>) : (<input value={log.date} onChange={(e) => { const copy = [...journalDocData.activityLogs]; copy[idx].date = e.target.value; setJournalDocData({ ...journalDocData, activityLogs: copy }); }} className="w-full bg-transparent outline-none font-bold" />)}
-                            </td>
-                            <td className={`p-1.5 border align-top text-[13px] ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
-                              {modalType === 'view_journal' ? (<div className="whitespace-pre-wrap leading-snug">{log.description}</div>) : (<textarea value={log.description} onChange={(e) => { const copy = [...journalDocData.activityLogs]; copy[idx].description = e.target.value; setJournalDocData({ ...journalDocData, activityLogs: copy }); }} rows="2" className="w-full bg-transparent outline-none resize-none leading-snug" onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} />)}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (<tr><td className={`italic p-1.5 border text-[12px] ${isDarkMode ? 'text-gray-400 border-gray-600' : 'text-gray-400 border-gray-300'}`}>No activities.</td></tr>)}
-                    </tbody>
-                  </table>
+                  {journalDocData.isJsonFormat ? (
+                    <textarea 
+                      value={journalDocData.rawActivitiesText} 
+                      onChange={(e) => setJournalDocData({ ...journalDocData, rawActivitiesText: e.target.value })} 
+                      rows="6" 
+                      readOnly={modalType === 'view_journal'} 
+                      className={`w-full outline-none resize-none text-[13px] leading-relaxed bg-transparent border p-1.5 transition-colors ${modalType === 'view_journal' ? 'border-transparent' : `border-gray-400 ${theme.ring}`} ${textMain}`} 
+                      style={{ textIndent: '2rem' }} 
+                    />
+                  ) : (
+                    <div className="overflow-x-auto w-full">
+                      <table className={`w-full border-collapse ${textMain}`}>
+                        <tbody>
+                          {journalDocData.activityLogs && journalDocData.activityLogs.length > 0 ? (
+                            journalDocData.activityLogs.map((log, idx) => (
+                              <tr key={idx}>
+                                <td className={`p-1.5 border w-24 align-top text-[12px] ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                  {modalType === 'view_journal' ? (<strong>{log.date}</strong>) : (<input value={log.date} onChange={(e) => { const copy = [...journalDocData.activityLogs]; copy[idx].date = e.target.value; setJournalDocData({ ...journalDocData, activityLogs: copy }); }} className="w-full bg-transparent outline-none font-bold" />)}
+                                </td>
+                                <td className={`p-1.5 border align-top text-[13px] ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                  {modalType === 'view_journal' ? (<div className="whitespace-pre-wrap leading-snug">{log.description}</div>) : (<textarea value={log.description} onChange={(e) => { const copy = [...journalDocData.activityLogs]; copy[idx].description = e.target.value; setJournalDocData({ ...journalDocData, activityLogs: copy }); }} rows="2" className="w-full bg-transparent outline-none resize-none leading-snug" onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = (e.target.scrollHeight) + 'px'; }} />)}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (<tr><td className={`italic p-1.5 border text-[12px] ${isDarkMode ? 'text-gray-400 border-gray-600' : 'text-gray-400 border-gray-300'}`}>No activities.</td></tr>)}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-5">

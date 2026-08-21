@@ -18,6 +18,7 @@ function Dashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [profile, setProfile] = useState(null); 
+  const [dismissedPending, setDismissedPending] = useState(false); // Tracks if they closed the pending modal
 
   // GLOBAL DARK MODE LISTENER
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
@@ -33,8 +34,8 @@ function Dashboard() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsAuthenticated(true);
-        // Fetch company_id to see if they need onboarding
-        const { data } = await supabase.from('profiles').select('first_name, last_name, department, company_id').eq('id', session.user.id).single();
+        // FETCH company_status AS WELL to check if they are waiting for approval
+        const { data } = await supabase.from('profiles').select('first_name, last_name, department, company_id, company_status').eq('id', session.user.id).single();
         if (data) setProfile(data);
       } else {
         setIsAuthenticated(false);
@@ -55,8 +56,8 @@ function Dashboard() {
     }
   };
 
-  // CHECK IF WE NEED TO SHOW THE ONBOARDING SPOTLIGHT
-  const showTutorial = !authLoading && isAuthenticated && profile && profile.company_id === null && activeTab !== 'Company';
+  // CHECK IF WE NEED TO SHOW THE ONBOARDING SPOTLIGHT (Strictly hide it if pending!)
+  const showTutorial = !authLoading && isAuthenticated && profile && profile.company_id === null && profile.company_status !== 'pending' && activeTab !== 'Company';
 
   return (
     <div className={`w-screen h-screen ${getGradientByDepartment(profile?.department)} overflow-hidden font-sans relative transition-colors duration-500`}>
@@ -115,6 +116,29 @@ function Dashboard() {
             <h2 className="text-xl font-bold text-gray-900 mb-2">Authentication Required</h2>
             <p className="text-sm text-gray-600 mb-6">You are not logged in. Please log in to access your dashboard.</p>
             <button onClick={() => navigate('/login')} className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition-colors shadow-sm">Go to Log In</button>
+          </div>
+        </div>
+      )}
+
+      {/* PENDING APPROVAL MODAL */}
+      {profile?.company_status === 'pending' && !dismissedPending && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className={`p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border ${isDarkMode ? 'bg-[#1e1e2d] border-white/10' : 'bg-white border-gray-200'}`}>
+            <div className="w-20 h-20 bg-blue-500/20 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-5 border border-blue-500/30">
+              <svg className="w-10 h-10 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Pending Approval</h2>
+            <p className={`text-[13px] leading-relaxed mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Your deployment request has been successfully sent! Please wait for your coordinator to review and approve your application.
+            </p>
+            <button 
+              onClick={() => setDismissedPending(true)} 
+              className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
+            >
+              Okay, I understand
+            </button>
           </div>
         </div>
       )}

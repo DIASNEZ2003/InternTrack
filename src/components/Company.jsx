@@ -123,14 +123,13 @@ function Company() {
   const textMuted = isDarkMode ? 'text-gray-400' : 'text-gray-500';
   const bgHover = isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50/80';
 
-  // --- UPDATED SUBMIT LOGIC TO PENDING STATUS ---
   const handleSelectCompany = async () => {
     if (!profile?.id) return;
     setIsSubmitting(true);
     try {
       const { error } = await supabase.from('profiles').update({ 
         company_id: selectedCompany.id,
-        company_status: 'pending' // Triggers admin approval
+        company_status: 'pending' 
       }).eq('id', profile.id);
       
       if (error) throw error;
@@ -158,8 +157,45 @@ function Company() {
   const isStatusPending = profile?.company_status === 'pending';
   const showTutorialBanner = !hasAssignedCompany && !hideTutorial && companies.length > 0;
 
+  // PRE-PROCESS DATA FOR BOTH MOBILE & DESKTOP VIEWS
+  const processedCompanies = filteredCompanies.map(comp => {
+    const isMyCompany = hasAssignedCompany && String(profile.company_id) === String(comp.id);
+    const isDimmed = hasAssignedCompany && !isMyCompany;
+    const hoursLeft = Math.max(comp.required_hours - totalHours, 0);
+
+    // Desktop Row Styling
+    let rowClass = `transition-all duration-300 `;
+    if (isMyCompany) {
+      if (isStatusPending) {
+        rowClass += isDarkMode ? 'bg-blue-500/10 border-l-4 border-blue-500' : 'bg-blue-50 border-l-4 border-blue-500';
+      } else {
+        rowClass += isDarkMode ? 'bg-emerald-500/10 border-l-4 border-emerald-500' : 'bg-emerald-50 border-l-4 border-emerald-500';
+      }
+    } else if (isDimmed) {
+      rowClass += `opacity-40 grayscale-[30%] pointer-events-none ${bgHover}`;
+    } else {
+      rowClass += `group ${bgHover} border-l-4 border-transparent`;
+    }
+
+    // Mobile Card Styling
+    let cardClass = `transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative overflow-hidden shadow-sm `;
+    if (isMyCompany) {
+      if (isStatusPending) {
+        cardClass += isDarkMode ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50 border-blue-200';
+      } else {
+        cardClass += isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200';
+      }
+    } else if (isDimmed) {
+      cardClass += `opacity-40 grayscale-[30%] pointer-events-none ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`;
+    } else {
+      cardClass += isDarkMode ? 'bg-white/5 border-white/5' : 'bg-white border-gray-100';
+    }
+
+    return { ...comp, isMyCompany, isDimmed, hoursLeft, rowClass, cardClass };
+  });
+
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-y-auto custom-scrollbar">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
       
       {/* Top Search Bar */}
       <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border shrink-0 ${bgCard}`}>
@@ -211,48 +247,32 @@ function Company() {
           <div className="flex-1 flex items-center justify-center">
             <div className={`w-8 h-8 border-4 border-t-transparent rounded-full animate-spin ${theme.border}`}></div>
           </div>
-        ) : filteredCompanies.length === 0 ? (
+        ) : processedCompanies.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
              <h3 className={`text-sm font-bold mb-1 ${textMain}`}>No companies found</h3>
              <p className={`text-xs ${textMuted}`}>Wait for your admin to add companies or adjust your search.</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Company Profile</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Supervisor(s)</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Slots</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Req. Hours</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted} w-40`}>Your Progress</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Action</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredCompanies.map(comp => {
-                  
-                  const isMyCompany = hasAssignedCompany && String(profile.company_id) === String(comp.id);
-                  const isDimmed = hasAssignedCompany && !isMyCompany;
-
-                  // Row Styling Logic
-                  let rowClass = `transition-all duration-300 `;
-                  if (isMyCompany) {
-                    if (isStatusPending) {
-                      rowClass += isDarkMode ? 'bg-blue-500/10 border-l-4 border-blue-500' : 'bg-blue-50 border-l-4 border-blue-500';
-                    } else {
-                      rowClass += isDarkMode ? 'bg-emerald-500/10 border-l-4 border-emerald-500' : 'bg-emerald-50 border-l-4 border-emerald-500';
-                    }
-                  } else if (isDimmed) {
-                    rowClass += `opacity-40 grayscale-[30%] pointer-events-none ${bgHover}`;
-                  } else {
-                    rowClass += `group ${bgHover} border-l-4 border-transparent`;
-                  }
-
-                  const hoursLeft = Math.max(comp.required_hours - totalHours, 0);
-
-                  return (
-                    <tr key={comp.id} className={rowClass}>
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* ============================== */}
+            {/* 🖥️ DESKTOP VIEW (TABLE)        */}
+            {/* ============================== */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Company Profile</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Supervisor(s)</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Slots</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Req. Hours</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted} w-40`}>Your Progress</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Action</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {processedCompanies.map(comp => (
+                    <tr key={comp.id} className={comp.rowClass}>
                       
                       {/* COMPANY PROFILE */}
                       <td className="py-3 px-4">
@@ -297,11 +317,11 @@ function Company() {
                       <td className="py-3 px-4 text-center">
                         <div className="inline-flex items-center justify-center gap-2">
                           <div className="flex items-baseline text-[13px] font-bold">
-                            <span className={comp.isFull && !isMyCompany ? 'text-red-500' : textMain}>{comp.assignedCount}</span>
+                            <span className={comp.isFull && !comp.isMyCompany ? 'text-red-500' : textMain}>{comp.assignedCount}</span>
                             <span className={`mx-1 ${textMuted}`}>/</span>
                             <span className={textMuted}>{comp.capacity}</span>
                           </div>
-                          {comp.isFull && !isMyCompany && <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Full</span>}
+                          {comp.isFull && !comp.isMyCompany && <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Full</span>}
                         </div>
                       </td>
 
@@ -312,12 +332,12 @@ function Company() {
 
                       {/* PROGRESS COLUMN */}
                       <td className="py-3 px-4">
-                        {isMyCompany && !isStatusPending ? (
+                        {comp.isMyCompany && !isStatusPending ? (
                           <div className="flex flex-col gap-1.5 w-full min-w-[120px]">
                             <div className="flex justify-between items-end">
                               <span className={`text-[10px] font-bold ${textMuted}`}>{totalHours.toFixed(1)} / {comp.required_hours}</span>
-                              <span className={`text-[10px] font-bold ${hoursLeft === 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                {hoursLeft.toFixed(1)} left
+                              <span className={`text-[10px] font-bold ${comp.hoursLeft === 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                {comp.hoursLeft.toFixed(1)} left
                               </span>
                             </div>
                             <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}>
@@ -334,7 +354,7 @@ function Company() {
 
                       {/* ACTIONS */}
                       <td className="py-3 px-4 text-right">
-                        {isMyCompany ? (
+                        {comp.isMyCompany ? (
                           isStatusPending ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">
                               <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -346,7 +366,7 @@ function Company() {
                               Active
                             </span>
                           )
-                        ) : isDimmed ? (
+                        ) : comp.isDimmed ? (
                           <button disabled className={`px-3 py-1.5 rounded-md text-[11px] font-bold shadow-sm ${isDarkMode ? 'bg-white/5 text-gray-500 border border-white/5' : 'bg-gray-100 text-gray-400'} cursor-not-allowed`}>
                             Locked
                           </button>
@@ -366,10 +386,135 @@ function Company() {
                       </td>
 
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ============================== */}
+            {/* 📱 MOBILE VIEW (CARDS)         */}
+            {/* ============================== */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {processedCompanies.map(comp => (
+                <div key={comp.id} className={comp.cardClass}>
+                  
+                  {/* Card Header: Profile */}
+                  <div className="flex items-center gap-3 w-full">
+                    {comp.logo_url ? (
+                      <img src={comp.logo_url} className={`w-10 h-10 rounded-lg object-cover shadow-sm border shrink-0 ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                      </div>
+                    )}
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className={`text-[13px] font-bold truncate ${textMain}`}>{comp.name}</span>
+                      <span className={`text-[11px] truncate ${textMuted}`}>{comp.address || 'No address provided'}</span>
+                    </div>
+                  </div>
+
+                  <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}></div>
+
+                  {/* Card Body: Stats */}
+                  <div className="grid grid-cols-2 gap-y-3 gap-x-2 w-full">
+                    
+                    {/* Supervisor */}
+                    <div className="flex flex-col">
+                      <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Supervisor</span>
+                      {comp.supervisors && comp.supervisors.length > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          {comp.supervisors[0].avatar_url ? (
+                            <img src={comp.supervisors[0].avatar_url} className={`w-4 h-4 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                          ) : (
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                              {comp.supervisors[0].first_name?.charAt(0)}{comp.supervisors[0].last_name?.charAt(0)}
+                            </div>
+                          )}
+                          <span className={`text-[11px] font-medium truncate ${textMain}`}>
+                            {comp.supervisors[0].first_name} {comp.supervisors.length > 1 && `+${comp.supervisors.length - 1}`}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className={`text-[11px] italic ${textMuted}`}>Pending Assignment</span>
+                      )}
+                    </div>
+
+                    {/* Req Hours */}
+                    <div className="flex flex-col">
+                      <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Req. Hours</span>
+                      <span className={`text-[12px] font-bold ${textMain}`}>{comp.required_hours} hrs</span>
+                    </div>
+
+                    {/* Slots */}
+                    <div className="flex flex-col">
+                      <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Available Slots</span>
+                      <div className="flex items-center">
+                        <span className={`text-[12px] font-bold ${comp.isFull && !comp.isMyCompany ? 'text-red-500' : textMain}`}>{comp.assignedCount}</span>
+                        <span className={`mx-1 text-[11px] font-bold ${textMuted}`}>/</span>
+                        <span className={`text-[12px] font-bold ${textMuted}`}>{comp.capacity}</span>
+                        {comp.isFull && !comp.isMyCompany && <span className="ml-2 bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Full</span>}
+                      </div>
+                    </div>
+                    
+                    {/* Empty placeholder for grid balance */}
+                    <div></div>
+                  </div>
+
+                  {/* Mobile Progress Bar (If Active) */}
+                  {comp.isMyCompany && !isStatusPending && (
+                    <div className="flex flex-col gap-1.5 w-full mt-1">
+                      <div className="flex justify-between items-end">
+                        <span className={`text-[10px] font-bold ${textMuted}`}>{totalHours.toFixed(1)} / {comp.required_hours} rendered</span>
+                        <span className={`text-[10px] font-bold ${comp.hoursLeft === 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {comp.hoursLeft.toFixed(1)} left
+                        </span>
+                      </div>
+                      <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}>
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ${theme.primary}`} 
+                          style={{ width: `${Math.min((totalHours / (comp.required_hours || 1)) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Action Button */}
+                  <div className={`mt-1 pt-3 border-t flex justify-end w-full ${isDarkMode ? 'border-white/5' : 'border-gray-100'}`}>
+                    {comp.isMyCompany ? (
+                      isStatusPending ? (
+                        <span className="w-full justify-center inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          Pending Approval
+                        </span>
+                      ) : (
+                        <span className="w-full justify-center inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                          Currently Active
+                        </span>
+                      )
+                    ) : comp.isDimmed ? (
+                      <button disabled className={`w-full justify-center px-3 py-2 rounded-lg text-[12px] font-bold shadow-sm ${isDarkMode ? 'bg-white/5 text-gray-500 border border-white/5' : 'bg-gray-100 text-gray-400'} cursor-not-allowed`}>
+                        Locked
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => { setSelectedCompany(comp); setIsConfirmModalOpen(true); }}
+                        disabled={comp.isFull}
+                        className={`w-full justify-center px-4 py-2 rounded-lg text-[12px] font-bold transition-all shadow-sm ${
+                          comp.isFull 
+                            ? (isDarkMode ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5' : 'bg-gray-100 text-gray-400 cursor-not-allowed') 
+                            : `text-white ${theme.primary} hover:opacity-90`
+                        }`}
+                      >
+                        {comp.isFull ? 'No Slots Available' : 'Select Company'}
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
       </div>

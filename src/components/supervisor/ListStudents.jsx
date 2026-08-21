@@ -107,7 +107,7 @@ function ListStudents() {
 
   if (!hasCompany) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full">
+      <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full overflow-hidden">
         <div className={`p-8 rounded-2xl border text-center max-w-md ${bgCard}`}>
           <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -120,17 +120,17 @@ function ListStudents() {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
       
       {/* Top Search Bar (Title Removed) */}
-      <div className={`flex flex-col md:flex-row md:items-center justify-end w-full mb-4 gap-4 p-4 rounded-xl border ${bgCard}`}>
+      <div className={`flex flex-col md:flex-row md:items-center justify-end w-full mb-4 gap-4 p-4 rounded-xl border shrink-0 ${bgCard}`}>
         <div className="relative w-full md:max-w-xs">
           <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input type="text" placeholder="Search intern by name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-9 pr-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${bgInput} focus:ring-1 ${theme.ring}`} />
         </div>
       </div>
 
-      {/* Main Table View */}
+      {/* Main Container */}
       <div className={`flex-1 rounded-xl overflow-hidden flex flex-col relative border ${bgCard}`}>
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -142,67 +142,131 @@ function ListStudents() {
             <p className={`text-xs ${textMuted}`}>There are currently no interns assigned to {companyName}.</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-12 text-center ${textMuted}`}>No.</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Intern Profile</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Username</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Status</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Action</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredStudents.map((student, index) => {
-                  const isPending = student.company_status === 'pending';
-                  
-                  return (
-                    <tr key={student.id} className={`transition-colors group ${bgHover}`}>
-                      <td className={`py-3 px-4 text-center text-[11px] font-bold ${textMuted}`}>{index + 1}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          {student.avatar_url ? (
-                            <img src={student.avatar_url} className={`w-9 h-9 rounded-full object-cover shrink-0 shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
-                          ) : (
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
-                              {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* 🖥️ DESKTOP VIEW (TABLE) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-12 text-center ${textMuted}`}>No.</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Intern Profile</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Username</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Status</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Action</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {filteredStudents.map((student, index) => {
+                    const isPending = student.company_status === 'pending';
+                    
+                    return (
+                      <tr key={student.id} className={`transition-colors group ${bgHover}`}>
+                        <td className={`py-3 px-4 text-center text-[11px] font-bold ${textMuted}`}>{index + 1}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {student.avatar_url ? (
+                              <img src={student.avatar_url} className={`w-9 h-9 rounded-full object-cover shrink-0 shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                            ) : (
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                                {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
+                              </div>
+                            )}
+                            <div>
+                              <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{student.first_name} {student.last_name}</p>
+                              <p className={`text-[11px] uppercase ${textMuted}`}>{student.department} Intern</p>
                             </div>
-                          )}
-                          <div>
-                            <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{student.first_name} {student.last_name}</p>
-                            <p className={`text-[11px] uppercase ${textMuted}`}>{student.department} Intern</p>
                           </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`text-[12px] font-medium px-2 py-1 rounded-md border ${isDarkMode ? 'bg-black/40 border-white/5 text-gray-300' : 'bg-gray-100 border-transparent text-gray-700'}`}>
+                            {student.username || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {isPending ? (
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                              Pending Approval
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                              Active Intern
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button onClick={() => openViewModal(student)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors border shadow-sm ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+                            View Profile
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 📱 MOBILE VIEW (CARDS) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {filteredStudents.map((student) => {
+                const isPending = student.company_status === 'pending';
+
+                return (
+                  <div key={student.id} className={`transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative shadow-sm ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                    
+                    {/* Header: Avatar + Info */}
+                    <div className="flex items-center gap-3 w-full">
+                      {student.avatar_url ? (
+                        <img src={student.avatar_url} className={`w-10 h-10 rounded-full object-cover shrink-0 shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-[14px] ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                          {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`text-[12px] font-medium px-2 py-1 rounded-md border ${isDarkMode ? 'bg-black/40 border-white/5 text-gray-300' : 'bg-gray-100 border-transparent text-gray-700'}`}>
-                          {student.username || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
+                      )}
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`text-[13px] font-bold truncate ${textMain}`}>{student.first_name} {student.last_name}</span>
+                        <span className={`text-[11px] uppercase ${textMuted}`}>{student.department} Intern</span>
+                      </div>
+                    </div>
+
+                    <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}></div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Username</span>
+                        <span className={`text-[12px] font-medium truncate px-2 py-1 rounded-md border w-max ${isDarkMode ? 'bg-black/40 border-white/5 text-gray-300' : 'bg-gray-100 border-transparent text-gray-700'}`}>{student.username || 'N/A'}</span>
+                      </div>
+                      <div className="flex flex-col items-start sm:items-end">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Status</span>
                         {isPending ? (
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
                             <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
-                            Pending Approval
+                            Pending
                           </span>
                         ) : (
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                            Active Intern
+                            Active
                           </span>
                         )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button onClick={() => openViewModal(student)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors border shadow-sm ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                          View Profile
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className={`flex flex-wrap items-center justify-end gap-2 pt-2 mt-1 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                      <button onClick={() => openViewModal(student)} className={`flex-1 justify-center inline-flex px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors border shadow-sm ${isDarkMode ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+                        View Profile
+                      </button>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+
           </div>
         )}
       </div>

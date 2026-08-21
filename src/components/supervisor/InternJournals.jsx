@@ -105,6 +105,11 @@ function InternJournals() {
     }
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    return new Date(dateString).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
   // --- DARK MODE THEME COLORS ---
   const getThemeColors = (deptCode) => {
     switch (deptCode) {
@@ -292,14 +297,9 @@ function InternJournals() {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No date';
-    return new Date(dateString).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
   if (!hasCompany) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full">
+      <div className="h-full flex flex-col items-center justify-center p-6 animate-fade-in w-full overflow-hidden">
         <div className={`p-8 rounded-2xl border text-center max-w-md ${bgCard}`}>
           <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -312,10 +312,10 @@ function InternJournals() {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
       
       {/* Top Action Bar with Filters */}
-      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-4 rounded-xl border ${bgCard}`}>
+      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-4 rounded-xl border shrink-0 ${bgCard}`}>
         <div>
           <h2 className={`text-lg font-bold tracking-tight ${textMain}`}>Intern Journals</h2>
           <p className={`text-[11px] font-medium uppercase tracking-wider mt-0.5 ${textMuted}`}>{companyName}</p>
@@ -326,8 +326,8 @@ function InternJournals() {
             <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input type="text" placeholder="Search intern or file..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-9 pr-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className={`w-full md:w-auto px-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${selectBg} ${theme.ring}`}>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className={`w-full sm:w-auto px-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${selectBg} ${theme.ring}`}>
               <option value="">All Months</option>
               <option value="1">January</option>
               <option value="2">February</option>
@@ -342,7 +342,7 @@ function InternJournals() {
               <option value="11">November</option>
               <option value="12">December</option>
             </select>
-            <select value={weekFilter} onChange={(e) => setWeekFilter(e.target.value)} className={`w-full md:w-auto px-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${selectBg} ${theme.ring}`}>
+            <select value={weekFilter} onChange={(e) => setWeekFilter(e.target.value)} className={`w-full sm:w-auto px-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${selectBg} ${theme.ring}`}>
               <option value="">All Weeks</option>
               <option value="1">1st Week</option>
               <option value="2">2nd Week</option>
@@ -368,70 +368,129 @@ function InternJournals() {
             <p className={`text-xs max-w-sm mx-auto ${textMuted}`}>There are no submitted journals matching your criteria from interns at {companyName}.</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 border-b z-10 ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-16 text-center ${textMuted}`}>Week</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Intern</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Document Name</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Inclusive Dates</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Submitted</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredReports.map((report) => (
-                  <tr key={report.id} className={`transition-colors group ${bgHover}`}>
-                    <td className="py-2.5 px-4 text-center">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
-                        {report.week_number}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <div className="flex items-center gap-3">
-                        {report.profiles.avatar_url ? (
-                          <img src={report.profiles.avatar_url} className={`w-8 h-8 rounded-lg object-cover shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
-                        ) : (
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs shadow-sm border ${isDarkMode ? 'border-white/5' : 'border-transparent'} ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
-                            {report.profiles.first_name?.charAt(0)}{report.profiles.last_name?.charAt(0)}
-                          </div>
-                        )}
-                        <div>
-                          <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{report.profiles.first_name} {report.profiles.last_name}</p>
-                          <p className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>{department} Intern</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
-                        </div>
-                        {/* Ensure file name appears as .docx visually even if backed by json */}
-                        <p className={`text-[12px] font-bold ${textMain}`}>{report.file_name.replace(/\.json$/i, '.docx')}</p>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <span className={`text-[11px] font-medium px-2 py-1 rounded-md border ${isDarkMode ? 'bg-black/40 border-white/5 text-gray-300' : 'bg-gray-100 border-transparent text-gray-700'}`}>{report.inclusive_dates || 'N/A'}</span>
-                    </td>
-                    <td className="py-2.5 px-4 text-center">
-                      <span className={`text-[12px] font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{formatDate(report.created_at)}</span>
-                    </td>
-                    <td className="py-2.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button onClick={() => handleViewDocument(report)} disabled={isFetchingFile} className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-700 border'}`}>
-                          View
-                        </button>
-                        <button onClick={() => handleDownload(report)} disabled={isFetchingFile} className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' : 'bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 border'}`}>
-                          Download
-                        </button>
-                      </div>
-                    </td>
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* 🖥️ DESKTOP VIEW (TABLE) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 border-b z-10 ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-16 text-center ${textMuted}`}>Week</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Intern</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Document Name</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Inclusive Dates</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Submitted</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {filteredReports.map((report) => (
+                    <tr key={report.id} className={`transition-colors group ${bgHover}`}>
+                      <td className="py-2.5 px-4 text-center">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-[11px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                          {report.week_number}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <div className="flex items-center gap-3">
+                          {report.profiles.avatar_url ? (
+                            <img src={report.profiles.avatar_url} className={`w-8 h-8 rounded-lg object-cover shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
+                          ) : (
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs shadow-sm border ${isDarkMode ? 'border-white/5' : 'border-transparent'} ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                              {report.profiles.first_name?.charAt(0)}{report.profiles.last_name?.charAt(0)}
+                            </div>
+                          )}
+                          <div>
+                            <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{report.profiles.first_name} {report.profiles.last_name}</p>
+                            <p className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>{department} Intern</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 border ${isDarkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
+                          </div>
+                          {/* Ensure file name appears as .docx visually even if backed by json */}
+                          <p className={`text-[12px] font-bold ${textMain}`}>{report.file_name.replace(/\.json$/i, '.docx')}</p>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className={`text-[11px] font-medium px-2 py-1 rounded-md border ${isDarkMode ? 'bg-black/40 border-white/5 text-gray-300' : 'bg-gray-100 border-transparent text-gray-700'}`}>{report.inclusive_dates || 'N/A'}</span>
+                      </td>
+                      <td className="py-2.5 px-4 text-center">
+                        <span className={`text-[12px] font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{formatDate(report.created_at)}</span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => handleViewDocument(report)} disabled={isFetchingFile} className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-700 border'}`}>
+                            View
+                          </button>
+                          <button onClick={() => handleDownload(report)} disabled={isFetchingFile} className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' : 'bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 border'}`}>
+                            Download
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 📱 MOBILE VIEW (CARDS) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {filteredReports.map((report) => (
+                 <div key={report.id} className={`transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative shadow-sm ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                    
+                    {/* Header: Student Info */}
+                    <div className="flex items-center gap-3 w-full">
+                      {report.profiles.avatar_url ? (
+                        <img src={report.profiles.avatar_url} className={`w-10 h-10 rounded-lg object-cover shadow-sm border shrink-0 ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs shadow-sm border ${isDarkMode ? 'border-white/5' : 'border-transparent'} ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                          {report.profiles.first_name?.charAt(0)}{report.profiles.last_name?.charAt(0)}
+                        </div>
+                      )}
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`text-[13px] font-bold truncate ${textMain}`}>{report.profiles.first_name} {report.profiles.last_name}</span>
+                        <span className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>{department} Intern</span>
+                      </div>
+                      <div className={`w-8 h-8 flex justify-center items-center rounded-lg text-[11px] font-bold shrink-0 ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                        W{report.week_number}
+                      </div>
+                    </div>
+
+                    <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}></div>
+
+                    {/* Details Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Document</span>
+                        <div className="flex items-center gap-1.5">
+                          <svg className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/><path d="M8 12h8v2H8zm0 4h8v2H8z"/></svg>
+                          <span className={`text-[12px] font-bold truncate ${textMain}`}>{report.file_name.replace(/\.json$/i, '.docx')}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Inclusive Dates</span>
+                        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md border w-max ${isDarkMode ? 'bg-black/40 border-white/5 text-gray-300' : 'bg-gray-100 border-transparent text-gray-700'}`}>{report.inclusive_dates || 'N/A'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center mt-1">
+                       <span className={`text-[10px] whitespace-nowrap ${textMuted}`}>Submitted: {formatDate(report.created_at)}</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className={`flex flex-wrap items-center justify-end gap-2 pt-2 mt-1 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                      <button onClick={() => handleViewDocument(report)} disabled={isFetchingFile} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' : 'bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-700 border border-transparent'}`}>View</button>
+                      <button onClick={() => handleDownload(report)} disabled={isFetchingFile} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isDarkMode ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30' : 'bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 border border-transparent'}`}>Download</button>
+                    </div>
+
+                 </div>
+              ))}
+            </div>
+
           </div>
         )}
       </div>
@@ -451,11 +510,11 @@ function InternJournals() {
             <div className="flex-1 overflow-y-auto p-4 flex justify-center custom-scrollbar">
               <div className={`shadow-sm border p-8 sm:p-12 shrink-0 ${isDarkMode ? 'bg-gray-800 border-white/10' : 'bg-white border-gray-200'}`} style={{ width: '100%', maxWidth: '750px', minHeight: '900px', fontFamily: 'Arial, sans-serif' }}>
                 <h1 className={`text-center text-base font-bold uppercase mb-6 ${textMain}`}>WEEKLY PROGRESS REPORT</h1>
-                <div className={`grid grid-cols-2 gap-x-2 gap-y-3 mb-8 text-[13px] ${textMain}`}>
-                  <div className="flex"><span className="w-28">Student’s Name:</span><strong className="font-bold flex-1">{viewingProfile?.first_name} {viewingProfile?.last_name}</strong></div>
-                  <div></div>
-                  <div className="flex items-center"><span className="w-28">Week #:</span><span className="font-bold">{generatedReport.weekNumber}</span></div>
-                  <div className="flex items-center justify-end"><span className="mr-2">Inclusive Dates:</span><span className="font-bold">{generatedReport.inclusiveDates}</span></div>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-3 mb-8 text-[13px] ${textMain}`}>
+                  <div className="flex"><span className="w-28 shrink-0">Student’s Name:</span><strong className="font-bold flex-1">{viewingProfile?.first_name} {viewingProfile?.last_name}</strong></div>
+                  <div className="hidden sm:block"></div>
+                  <div className="flex items-center"><span className="w-28 shrink-0">Week #:</span><span className="font-bold">{generatedReport.weekNumber}</span></div>
+                  <div className="flex items-center sm:justify-end"><span className="mr-2">Inclusive Dates:</span><span className="font-bold">{generatedReport.inclusiveDates}</span></div>
                 </div>
                 
                 <div className="mb-5">

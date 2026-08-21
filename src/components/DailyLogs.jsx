@@ -178,9 +178,10 @@ function DailyLogs() {
   const previewUrl = proofFile ? URL.createObjectURL(proofFile) : formData.proof_url;
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
       
-      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border ${bgCard}`}>
+      {/* Top Action Bar */}
+      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border shrink-0 ${bgCard}`}>
         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:flex-1 max-w-2xl">
           <div className="relative w-full max-w-sm flex-1">
             <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -210,35 +211,69 @@ function DailyLogs() {
             <p className={`text-xs ${textMuted}`}>Try adjusting your search query or add a new log.</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Date</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Shift</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Tasks Completed</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Hours</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredLogs.map((log) => (
-                  <tr key={log.id} className={`transition-colors cursor-pointer group ${bgHover}`} onClick={() => openModal('view', log)}>
-                    <td className="py-2.5 px-4"><div className={`text-[13px] font-bold ${textMain}`}>{log.date}</div></td>
-                    <td className="py-2.5 px-4"><div className={`text-[12px] font-medium ${textMuted}`}>{formatTime12hr(log.start_shift)} - {formatTime12hr(log.end_shift)}</div></td>
-                    <td className="py-2.5 px-4"><div className={`text-[13px] font-medium truncate max-w-[200px] xl:max-w-[400px] ${textMain}`} title={log.description}>{log.description}</div></td>
-                    <td className="py-2.5 px-4"><div className={`text-[12px] font-bold px-2 py-0.5 rounded-md inline-block ${isDarkMode ? 'bg-black/40 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>{log.hours}</div></td>
-                    <td className="py-2.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); openModal('view', log); }} className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-800'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
-                        <button onClick={(e) => { e.stopPropagation(); openModal('edit', log); }} className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-800'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
-                        <button onClick={(e) => { e.stopPropagation(); openModal('delete', log); }} className="text-gray-400 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                      </div>
-                    </td>
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* 🖥️ DESKTOP VIEW (TABLE) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 z-10 border-b ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Date</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Shift</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Tasks Completed</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Hours</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {filteredLogs.map((log) => (
+                    <tr key={log.id} className={`transition-colors cursor-pointer group ${bgHover}`} onClick={() => openModal('view', log)}>
+                      <td className="py-2.5 px-4"><div className={`text-[13px] font-bold ${textMain}`}>{log.date}</div></td>
+                      <td className="py-2.5 px-4"><div className={`text-[12px] font-medium ${textMuted}`}>{formatTime12hr(log.start_shift)} - {formatTime12hr(log.end_shift)}</div></td>
+                      <td className="py-2.5 px-4"><div className={`text-[13px] font-medium truncate max-w-[200px] xl:max-w-[400px] ${textMain}`} title={log.description}>{log.description}</div></td>
+                      <td className="py-2.5 px-4"><div className={`text-[12px] font-bold px-2 py-0.5 rounded-md inline-block ${isDarkMode ? 'bg-black/40 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>{log.hours}</div></td>
+                      <td className="py-2.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); openModal('view', log); }} className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-800'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
+                          <button onClick={(e) => { e.stopPropagation(); openModal('edit', log); }} className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-800'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                          <button onClick={(e) => { e.stopPropagation(); openModal('delete', log); }} className="text-gray-400 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 📱 MOBILE VIEW (CARDS) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {filteredLogs.map((log) => (
+                <div 
+                  key={log.id} 
+                  onClick={() => openModal('view', log)} 
+                  className={`transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative overflow-hidden shadow-sm cursor-pointer ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+                >
+                  <div className={`flex justify-between items-center w-full border-b pb-2 ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                    <span className={`text-[13px] font-bold ${textMain}`}>{log.date}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${isDarkMode ? 'bg-black/40 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>{log.hours}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                     <span className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>Shift Time</span>
+                     <span className={`text-[12px] font-medium ${textMain}`}>{formatTime12hr(log.start_shift)} - {formatTime12hr(log.end_shift)}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                     <span className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>Tasks Completed</span>
+                     <span className={`text-[12px] font-medium truncate ${textMain}`} title={log.description}>{log.description || 'No description'}</span>
+                  </div>
+                  <div className={`flex items-center justify-end gap-2 pt-2 mt-1 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                     <button onClick={(e) => { e.stopPropagation(); openModal('view', log); }} className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-800'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
+                     <button onClick={(e) => { e.stopPropagation(); openModal('edit', log); }} className={`p-1.5 rounded-md transition-colors ${isDarkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-800'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                     <button onClick={(e) => { e.stopPropagation(); openModal('delete', log); }} className="text-gray-400 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
       </div>

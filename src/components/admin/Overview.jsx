@@ -160,7 +160,7 @@ function Overview() {
   if (isLoading) return <div className="h-full flex items-center justify-center"><div className={`w-8 h-8 border-4 border-t-transparent rounded-full animate-spin ${theme.border}`}></div></div>;
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full overflow-y-auto custom-scrollbar gap-6">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full overflow-y-auto overflow-x-hidden custom-scrollbar gap-6">
       
       {/* 1. THE EXECUTIVE RIBBON (Minimal KPIs) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -227,7 +227,7 @@ function Overview() {
         {/* Activity Timeline (Bar Chart) */}
         <div className={`p-6 rounded-xl border ${bgCard} lg:col-span-2 flex flex-col`}>
           <h3 className={`text-[12px] font-bold uppercase tracking-wider mb-6 ${textMain}`}>Report Submissions (By Week)</h3>
-          <div className="flex-1 flex items-end justify-around h-[200px] w-full pt-4 relative border-b border-dashed border-gray-500/30">
+          <div className="flex-1 flex items-end justify-around h-[200px] w-full pt-4 relative border-b border-dashed border-gray-500/30 overflow-x-auto overflow-y-hidden hide-scrollbar">
             {chartData.length === 0 ? (
                <p className={`absolute inset-0 flex items-center justify-center text-sm italic ${textMuted}`}>No reports submitted yet.</p>
             ) : (
@@ -235,8 +235,8 @@ function Overview() {
                 const maxCount = Math.max(...chartData.map(d => d.count), 1);
                 const heightPercentage = (data.count / maxCount) * 100;
                 return (
-                  <div key={index} className="flex flex-col items-center group w-1/6">
-                    <span className={`opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold mb-2 px-2 py-1 rounded bg-black/80 text-white`}>{data.count} Reports</span>
+                  <div key={index} className="flex flex-col items-center group min-w-[40px] px-1 sm:w-1/6">
+                    <span className={`opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold mb-2 px-2 py-1 rounded bg-black/80 text-white whitespace-nowrap`}>{data.count} Reports</span>
                     <div className={`w-full max-w-[40px] rounded-t-md transition-all duration-700 ${theme.primary}`} style={{ height: `${heightPercentage}%`, minHeight: '10px' }}></div>
                     <span className={`text-[10px] font-bold mt-3 ${textMuted}`}>{data.week}</span>
                   </div>
@@ -262,8 +262,8 @@ function Overview() {
               companyStats.map(comp => (
                 <div key={comp.id} className="flex flex-col gap-1.5">
                   <div className="flex justify-between items-center">
-                    <span className={`text-[12px] font-semibold ${textMain}`}>{comp.name}</span>
-                    <span className={`text-[11px] font-medium ${textMuted}`}>{comp.assigned} / {comp.capacity} Slots</span>
+                    <span className={`text-[12px] font-semibold truncate pr-2 ${textMain}`}>{comp.name}</span>
+                    <span className={`text-[11px] font-medium shrink-0 ${textMuted}`}>{comp.assigned} / {comp.capacity} Slots</span>
                   </div>
                   <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                     <div className={`h-full rounded-full transition-all duration-1000 ${comp.percentage >= 100 ? 'bg-red-500' : theme.primary}`} style={{ width: `${comp.percentage}%` }}></div>
@@ -294,7 +294,7 @@ function Overview() {
                  <div key={req.id} className={`flex flex-col gap-2 p-3 rounded-xl border transition-colors ${isDarkMode ? 'border-white/5 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
                    <div className="flex items-center gap-3">
                      {req.avatar_url ? (
-                       <img src={req.avatar_url} alt="Profile" className={`w-8 h-8 rounded-full object-cover shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                       <img src={req.avatar_url} alt="Profile" className={`w-8 h-8 rounded-full object-cover shadow-sm border shrink-0 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
                      ) : (
                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] ${theme.bgLight} ${theme.text}`}>
                          {req.first_name?.charAt(0)}{req.last_name?.charAt(0)}
@@ -306,27 +306,28 @@ function Overview() {
                      </div>
                    </div>
                    
-                   {/* Action Buttons inside the card */}
-                   <div className="flex items-center justify-end gap-2 mt-1">
+                   {/* Action Buttons safely wrapped on mobile */}
+                   <div className="flex items-center justify-end gap-2 mt-1 flex-wrap sm:flex-nowrap">
                      <button 
                        onClick={() => handleDeclineRequest(req.id)}
                        disabled={processingId === req.id}
-                       className={`p-1.5 rounded-lg border transition-colors ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'} disabled:opacity-50`}
+                       className={`flex-1 min-w-[70px] justify-center py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'} disabled:opacity-50`}
                        title="Decline"
                      >
                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                       <span className="text-[10px] font-bold uppercase tracking-wider block sm:hidden md:block lg:hidden xl:block">Decline</span>
                      </button>
                      <button 
                        onClick={() => handleAcceptRequest(req.id)}
                        disabled={processingId === req.id}
-                       className={`px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} disabled:opacity-50`}
+                       className={`flex-1 min-w-[70px] justify-center py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} disabled:opacity-50`}
                      >
                        {processingId === req.id ? (
                          <div className="w-3 h-3 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
                        ) : (
                          <>
                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                           <span className="text-[10px] font-bold uppercase tracking-wider">Approve</span>
+                           <span className="text-[10px] font-bold uppercase tracking-wider block sm:hidden md:block lg:hidden xl:block">Approve</span>
                          </>
                        )}
                      </button>
@@ -349,7 +350,7 @@ function Overview() {
                recentReports.map(report => (
                  <div key={report.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isDarkMode ? 'border-white/5 bg-white/5 hover:bg-white/10' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}`}>
                    {report.student?.avatar_url ? (
-                     <img src={report.student.avatar_url} alt="Profile" className={`w-10 h-10 rounded-lg object-cover shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                     <img src={report.student.avatar_url} alt="Profile" className={`w-10 h-10 rounded-lg object-cover shadow-sm border shrink-0 ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
                    ) : (
                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 font-bold text-[12px] ${theme.bgLight} ${theme.text}`}>
                        {report.student?.first_name?.charAt(0)}{report.student?.last_name?.charAt(0)}
@@ -360,13 +361,13 @@ function Overview() {
                        {report.student?.first_name} {report.student?.last_name}
                      </p>
                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${theme.bgLight} ${theme.text}`}>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${theme.bgLight} ${theme.text}`}>
                           {report.week_number || 'Week ?'}
                         </span>
                         <p className={`text-[11px] truncate ${textMuted}`}>{report.file_name}</p>
                      </div>
                    </div>
-                   <span className={`text-[10px] whitespace-nowrap ${textMuted}`}>
+                   <span className={`text-[10px] whitespace-nowrap shrink-0 ${textMuted}`}>
                      {new Date(report.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                    </span>
                  </div>
@@ -377,7 +378,13 @@ function Overview() {
 
       </div>
       
-      <style>{`.custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }`}</style>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; } 
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } 
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

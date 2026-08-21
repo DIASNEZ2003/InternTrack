@@ -125,7 +125,6 @@ function Company() {
     setAddressSuggestions([]);
   };
 
-  // FIX: Added the missing handleFormChange function that caused the white screen crash!
   const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
   const closeFeedbackModal = () => setFeedback({ show: false, type: '', message: '' });
 
@@ -303,16 +302,16 @@ function Company() {
   );
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative">
+    <div className="h-full flex flex-col p-4 sm:p-6 animate-fade-in w-full relative overflow-hidden">
       
       {/* Top Action Bar */}
-      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border ${bgCard}`}>
-        <div className="relative flex-1 max-w-sm">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between w-full mb-4 gap-3 p-3 rounded-xl border shrink-0 ${bgCard}`}>
+        <div className="relative flex-1 w-full max-w-sm">
           <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input type="text" placeholder="Search company by name or address..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-9 pr-3 py-2 rounded-lg text-[12px] font-medium outline-none transition-colors ${bgInput} ${theme.ring}`} />
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto">
           {/* NOTIFICATION BELL BUTTON */}
           <button 
             onClick={() => setIsPendingModalOpen(true)} 
@@ -326,13 +325,13 @@ function Company() {
             )}
           </button>
 
-          <button onClick={() => openCompanyModal('add')} className={`flex items-center gap-1.5 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-lg transition-colors border border-white/10 ${theme.primary}`}>
+          <button onClick={() => openCompanyModal('add')} className={`flex-1 md:flex-none flex justify-center items-center gap-1.5 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-lg transition-colors border border-white/10 ${theme.primary}`}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4M4 12h16" /></svg> Add Company
           </button>
         </div>
       </div>
 
-      {/* Main Table View */}
+      {/* Main Container */}
       <div className={`flex-1 rounded-xl overflow-hidden flex flex-col relative border ${bgCard}`}>
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center"><div className={`w-6 h-6 border-2 border-t-transparent rounded-full animate-spin ${theme.border}`}></div></div>
@@ -341,116 +340,238 @@ function Company() {
             <h3 className={`text-sm font-bold mb-1 ${textMain}`}>No companies found</h3>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-max">
-              <thead className={`sticky top-0 border-b z-10 ${bgHeader}`}>
-                <tr>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-12 text-center ${textMuted}`}>No.</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Company Profile</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Supervisor(s)</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Assigned Students</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Slots</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Req. Hours</th>
-                  <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
-                {filteredCompanies.map((company, index) => {
-                  const assignedStudents = getAssignedStudents(company.id);
-                  const pendingStudentsCount = getPendingStudents(company.id).length;
-                  const totalOccupied = assignedStudents.length + pendingStudentsCount;
-                  const isFull = totalOccupied >= company.capacity;
-                  const companySups = getCompanySupervisors(company.id);
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+            
+            {/* 🖥️ DESKTOP VIEW (TABLE) */}
+            <div className="hidden md:block w-full">
+              <table className="w-full text-left border-collapse min-w-max">
+                <thead className={`sticky top-0 border-b z-10 ${bgHeader}`}>
+                  <tr>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider w-12 text-center ${textMuted}`}>No.</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Company Profile</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Supervisor(s)</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider ${textMuted}`}>Assigned Students</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Slots</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-center ${textMuted}`}>Req. Hours</th>
+                    <th className={`py-3 px-4 text-[11px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                  {filteredCompanies.map((company, index) => {
+                    const assignedStudents = getAssignedStudents(company.id);
+                    const pendingStudentsCount = getPendingStudents(company.id).length;
+                    const totalOccupied = assignedStudents.length + pendingStudentsCount;
+                    const isFull = totalOccupied >= company.capacity;
+                    const companySups = getCompanySupervisors(company.id);
 
-                  return (
-                    <tr key={company.id} className={`transition-colors group ${bgHover}`}>
-                      <td className={`py-2.5 px-4 text-center text-[11px] font-bold ${textMuted}`}>{index + 1}</td>
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-3">
-                          {company.logo_url ? (
-                            <img src={company.logo_url} className={`w-8 h-8 rounded-lg object-cover shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
-                          ) : (
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    return (
+                      <tr key={company.id} className={`transition-colors group ${bgHover}`}>
+                        <td className={`py-2.5 px-4 text-center text-[11px] font-bold ${textMuted}`}>{index + 1}</td>
+                        <td className="py-2.5 px-4">
+                          <div className="flex items-center gap-3">
+                            {company.logo_url ? (
+                              <img src={company.logo_url} className={`w-8 h-8 rounded-lg object-cover shadow-sm border ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
+                            ) : (
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                              </div>
+                            )}
+                            <div>
+                              <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{company.name}</p>
+                              <p className={`text-[11px] truncate max-w-[200px] xl:max-w-[300px] ${textMuted}`}>{company.address || 'No address provided'}</p>
                             </div>
-                          )}
-                          <div>
-                            <p className={`text-[13px] font-bold leading-tight ${textMain}`}>{company.name}</p>
-                            <p className={`text-[11px] truncate max-w-[200px] xl:max-w-[300px] ${textMuted}`}>{company.address || 'No address provided'}</p>
                           </div>
-                        </div>
-                      </td>
-                      
-                      <td className="py-2.5 px-4">
-                        {companySups.length > 0 ? (
-                          <div className="flex flex-col gap-1.5">
-                            {companySups.map(sup => (
-                              <div key={sup.id} className="flex items-center gap-2">
-                                {sup.avatar_url ? (
-                                  <img src={sup.avatar_url} className={`w-5 h-5 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                        </td>
+                        
+                        <td className="py-2.5 px-4">
+                          {companySups.length > 0 ? (
+                            <div className="flex flex-col gap-1.5">
+                              {companySups.map(sup => (
+                                <div key={sup.id} className="flex items-center gap-2">
+                                  {sup.avatar_url ? (
+                                    <img src={sup.avatar_url} className={`w-5 h-5 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                                  ) : (
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                                      {sup.first_name?.charAt(0)}{sup.last_name?.charAt(0)}
+                                    </div>
+                                  )}
+                                  <span className={`text-[12px] font-medium ${textMain}`}>{sup.first_name} {sup.last_name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className={`text-[11px] italic ${textMuted}`}>No supervisor</span>
+                          )}
+                        </td>
+
+                        <td className="py-2.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex -space-x-2 overflow-hidden">
+                              {assignedStudents.slice(0, 3).map(student => (
+                                student.avatar_url ? (
+                                  <img key={student.id} src={student.avatar_url} className={`inline-block h-6 w-6 rounded-full ring-2 object-cover ${isDarkMode ? 'ring-gray-800' : 'ring-white'}`} />
                                 ) : (
-                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                                  <div key={student.id} className={`inline-flex items-center justify-center h-6 w-6 rounded-full ring-2 ${isDarkMode ? 'ring-gray-800' : 'ring-white'} ${theme.bgLight} ${theme.text} text-[8px] font-bold`}>
+                                    {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
+                                  </div>
+                                )
+                              ))}
+                              {assignedStudents.length > 3 && <div className={`inline-flex items-center justify-center h-6 w-6 rounded-full ring-2 ${isDarkMode ? 'ring-gray-800 bg-gray-700 text-gray-300' : 'ring-white bg-gray-100 text-gray-600'} text-[8px] font-bold`}>+{assignedStudents.length - 3}</div>}
+                              {assignedStudents.length === 0 && <span className={`text-[11px] italic ${textMuted}`}>None</span>}
+                            </div>
+                            {assignedStudents.length > 0 && <button onClick={() => openViewModal(company)} className={`text-[10px] font-bold hover:underline ${theme.text}`}>View</button>}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <div className="inline-flex flex-col items-center justify-center gap-1">
+                            <div className="flex items-baseline text-[13px] font-bold">
+                              <span className={isFull ? 'text-red-500' : textMain}>{totalOccupied}</span>
+                              <span className={`mx-1 ${textMuted}`}>/</span>
+                              <span className={textMuted}>{company.capacity}</span>
+                            </div>
+                            {pendingStudentsCount > 0 && <span className="text-[9px] text-amber-500 font-bold bg-amber-500/10 px-1.5 rounded">{pendingStudentsCount} pending</span>}
+                            {isFull && pendingStudentsCount === 0 && <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Full</span>}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <div className={`inline-flex items-center justify-center gap-1.5 text-[12px] font-bold ${textMain}`}>
+                            <svg className={`w-3.5 h-3.5 ${theme.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {company.required_hours > 0 ? `${company.required_hours} hrs` : <span className={`italic font-normal ${textMuted}`}>Not set</span>}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openAssignModal(company)} disabled={isFull} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isFull ? (isDarkMode ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5' : 'bg-gray-100 text-gray-400 cursor-not-allowed') : (isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100')}`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4M4 12h16" /></svg> Assign
+                            </button>
+                            <button onClick={() => openCompanyModal('edit', company)} className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ml-1 ${btnEdit}`}>Edit</button>
+                            <button onClick={() => {setCompanyToDelete(company); setIsDeleteModalOpen(true);}} className={`p-1.5 rounded-md transition-colors ml-1 ${btnDelete}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 📱 MOBILE VIEW (CARDS) */}
+            <div className="md:hidden flex flex-col gap-3 p-3 w-full">
+              {filteredCompanies.map((company) => {
+                const assignedStudents = getAssignedStudents(company.id);
+                const pendingStudentsCount = getPendingStudents(company.id).length;
+                const totalOccupied = assignedStudents.length + pendingStudentsCount;
+                const isFull = totalOccupied >= company.capacity;
+                const companySups = getCompanySupervisors(company.id);
+
+                return (
+                  <div key={company.id} className={`transition-all duration-300 rounded-xl border p-4 flex flex-col gap-3 relative shadow-sm ${isDarkMode ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-white border-gray-100 hover:bg-gray-50'}`}>
+                    
+                    {/* Header: Logo + Info */}
+                    <div className="flex items-center gap-3 w-full">
+                      {company.logo_url ? (
+                        <img src={company.logo_url} className={`w-10 h-10 rounded-lg object-cover shadow-sm border shrink-0 ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`} />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        </div>
+                      )}
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`text-[13px] font-bold truncate ${textMain}`}>{company.name}</span>
+                        <span className={`text-[11px] truncate ${textMuted}`}>{company.address || 'No address provided'}</span>
+                      </div>
+                    </div>
+
+                    <div className={`h-px w-full my-1 ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}></div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-2">
+                      {/* Supervisors */}
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Supervisors</span>
+                        {companySups.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            {companySups.slice(0, 2).map(sup => (
+                              <div key={sup.id} className="flex items-center gap-1.5">
+                                {sup.avatar_url ? (
+                                  <img src={sup.avatar_url} className={`w-4 h-4 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                                ) : (
+                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
                                     {sup.first_name?.charAt(0)}{sup.last_name?.charAt(0)}
                                   </div>
                                 )}
-                                <span className={`text-[12px] font-medium ${textMain}`}>{sup.first_name} {sup.last_name}</span>
+                                <span className={`text-[11px] font-medium truncate ${textMain}`}>{sup.first_name} {sup.last_name}</span>
                               </div>
                             ))}
+                            {companySups.length > 2 && <span className={`text-[10px] italic ${textMuted}`}>+{companySups.length - 2} more</span>}
                           </div>
                         ) : (
-                          <span className={`text-[11px] italic ${textMuted}`}>No supervisor</span>
+                          <span className={`text-[11px] italic ${textMuted}`}>None</span>
                         )}
-                      </td>
+                      </div>
 
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex -space-x-2 overflow-hidden">
-                            {assignedStudents.slice(0, 3).map(student => (
-                              student.avatar_url ? (
-                                <img key={student.id} src={student.avatar_url} className={`inline-block h-6 w-6 rounded-full ring-2 object-cover ${isDarkMode ? 'ring-gray-800' : 'ring-white'}`} />
-                              ) : (
-                                <div key={student.id} className={`inline-flex items-center justify-center h-6 w-6 rounded-full ring-2 ${isDarkMode ? 'ring-gray-800' : 'ring-white'} ${theme.bgLight} ${theme.text} text-[8px] font-bold`}>
-                                  {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
-                                </div>
-                              )
-                            ))}
-                            {assignedStudents.length > 3 && <div className={`inline-flex items-center justify-center h-6 w-6 rounded-full ring-2 ${isDarkMode ? 'ring-gray-800 bg-gray-700 text-gray-300' : 'ring-white bg-gray-100 text-gray-600'} text-[8px] font-bold`}>+{assignedStudents.length - 3}</div>}
-                            {assignedStudents.length === 0 && <span className={`text-[11px] italic ${textMuted}`}>None</span>}
-                          </div>
-                          {assignedStudents.length > 0 && <button onClick={() => openViewModal(company)} className={`text-[10px] font-bold hover:underline ${theme.text}`}>View</button>}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-center">
-                        <div className="inline-flex flex-col items-center justify-center gap-1">
-                          <div className="flex items-baseline text-[13px] font-bold">
-                            <span className={isFull ? 'text-red-500' : textMain}>{totalOccupied}</span>
-                            <span className={`mx-1 ${textMuted}`}>/</span>
-                            <span className={textMuted}>{company.capacity}</span>
-                          </div>
-                          {pendingStudentsCount > 0 && <span className="text-[9px] text-amber-500 font-bold bg-amber-500/10 px-1.5 rounded">{pendingStudentsCount} pending</span>}
-                          {isFull && pendingStudentsCount === 0 && <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Full</span>}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-center">
-                        <div className={`inline-flex items-center justify-center gap-1.5 text-[12px] font-bold ${textMain}`}>
+                      {/* Required Hours */}
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${textMuted}`}>Required Hours</span>
+                        <div className={`inline-flex items-center gap-1.5 text-[12px] font-bold ${textMain}`}>
                           <svg className={`w-3.5 h-3.5 ${theme.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                           {company.required_hours > 0 ? `${company.required_hours} hrs` : <span className={`italic font-normal ${textMuted}`}>Not set</span>}
                         </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openAssignModal(company)} disabled={isFull} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isFull ? (isDarkMode ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5' : 'bg-gray-100 text-gray-400 cursor-not-allowed') : (isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100')}`}>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4M4 12h16" /></svg> Assign
-                          </button>
-                          <button onClick={() => openCompanyModal('edit', company)} className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ml-1 ${btnEdit}`}>Edit</button>
-                          <button onClick={() => {setCompanyToDelete(company); setIsDeleteModalOpen(true);}} className={`p-1.5 rounded-md transition-colors ml-1 ${btnDelete}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                      </div>
+
+                      {/* Students */}
+                      <div className="flex flex-col col-span-2 mt-1">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className={`text-[10px] uppercase font-bold tracking-wider ${textMuted}`}>Assigned Students</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-baseline text-[11px] font-bold">
+                              <span className={isFull ? 'text-red-500' : textMain}>{totalOccupied}</span>
+                              <span className={`mx-1 ${textMuted}`}>/</span>
+                              <span className={textMuted}>{company.capacity}</span>
+                            </div>
+                            {isFull && pendingStudentsCount === 0 && <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Full</span>}
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+                        <div className="flex items-center justify-between bg-black/5 dark:bg-white/5 p-2 rounded-lg">
+                           <div className="flex items-center gap-2">
+                            <div className="flex -space-x-2 overflow-hidden">
+                              {assignedStudents.slice(0, 4).map(student => (
+                                student.avatar_url ? (
+                                  <img key={student.id} src={student.avatar_url} className={`inline-block h-6 w-6 rounded-full ring-2 object-cover ${isDarkMode ? 'ring-gray-800' : 'ring-white'}`} />
+                                ) : (
+                                  <div key={student.id} className={`inline-flex items-center justify-center h-6 w-6 rounded-full ring-2 ${isDarkMode ? 'ring-gray-800' : 'ring-white'} ${theme.bgLight} ${theme.text} text-[8px] font-bold`}>
+                                    {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
+                                  </div>
+                                )
+                              ))}
+                              {assignedStudents.length > 4 && <div className={`inline-flex items-center justify-center h-6 w-6 rounded-full ring-2 ${isDarkMode ? 'ring-gray-800 bg-gray-700 text-gray-300' : 'ring-white bg-gray-100 text-gray-600'} text-[8px] font-bold`}>+{assignedStudents.length - 4}</div>}
+                              {assignedStudents.length === 0 && <span className={`text-[11px] italic ${textMuted}`}>No active students</span>}
+                            </div>
+                           </div>
+                           
+                           <div className="flex items-center gap-2">
+                             {pendingStudentsCount > 0 && <span className="text-[9px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded">{pendingStudentsCount} pending</span>}
+                             {assignedStudents.length > 0 && <button onClick={() => openViewModal(company)} className={`text-[10px] font-bold hover:underline ${theme.text}`}>View All</button>}
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className={`flex flex-wrap items-center justify-end gap-2 pt-2 mt-1 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                      <button onClick={() => openAssignModal(company)} disabled={isFull} className={`flex-1 justify-center inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${isFull ? (isDarkMode ? 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5' : 'bg-gray-100 text-gray-400 cursor-not-allowed') : (isDarkMode ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100')}`}>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4M4 12h16" /></svg> Assign
+                      </button>
+                      <button onClick={() => openCompanyModal('edit', company)} className={`flex-1 justify-center inline-flex px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${btnEdit}`}>Edit</button>
+                      <button onClick={() => {setCompanyToDelete(company); setIsDeleteModalOpen(true);}} className={`justify-center inline-flex p-1.5 rounded-md transition-colors ${btnDelete}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+
           </div>
         )}
       </div>
@@ -485,72 +606,127 @@ function Company() {
               </div>
             </div>
 
-            <div className="p-0 max-h-[400px] overflow-y-auto custom-scrollbar">
+            <div className="p-0 max-h-[400px] overflow-y-auto overflow-x-hidden custom-scrollbar">
               {filteredPendingRequests.length === 0 ? (
                 <div className="flex flex-col items-center justify-center p-10 text-center">
                   <p className={`text-sm font-bold ${textMain}`}>No pending requests</p>
                   <p className={`text-xs mt-1 ${textMuted}`}>All student requests have been handled.</p>
                 </div>
               ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead className={`sticky top-0 ${isDarkMode ? 'bg-gray-800/90 backdrop-blur-sm' : 'bg-gray-50/90 backdrop-blur-sm'}`}>
-                    <tr>
-                      <th className={`py-2 px-4 text-[10px] font-bold uppercase tracking-wider ${textMuted}`}>Student</th>
-                      <th className={`py-2 px-4 text-[10px] font-bold uppercase tracking-wider ${textMuted}`}>Requested Company</th>
-                      <th className={`py-2 px-4 text-[10px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                <div className="flex flex-col w-full">
+                  
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="hidden md:block w-full">
+                    <table className="w-full text-left border-collapse">
+                      <thead className={`sticky top-0 ${isDarkMode ? 'bg-gray-800/90 backdrop-blur-sm' : 'bg-gray-50/90 backdrop-blur-sm'}`}>
+                        <tr>
+                          <th className={`py-2 px-4 text-[10px] font-bold uppercase tracking-wider ${textMuted}`}>Student</th>
+                          <th className={`py-2 px-4 text-[10px] font-bold uppercase tracking-wider ${textMuted}`}>Requested Company</th>
+                          <th className={`py-2 px-4 text-[10px] font-bold uppercase tracking-wider text-right ${textMuted}`}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-gray-100'}`}>
+                        {filteredPendingRequests.map(student => {
+                          const reqCompany = companies.find(c => String(c.id) === String(student.company_id));
+                          return (
+                            <tr key={student.id} className={`transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-3">
+                                  {student.avatar_url ? (
+                                    <img src={student.avatar_url} className={`w-8 h-8 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                                  ) : (
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                                      {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
+                                    </div>
+                                  )}
+                                  <span className={`text-[13px] font-bold ${textMain}`}>{student.first_name} {student.last_name}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`text-[12px] font-bold ${theme.text}`}>{reqCompany?.name || 'Unknown Company'}</span>
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button 
+                                    onClick={() => handleDeclineRequest(student.id)}
+                                    disabled={processingId === student.id}
+                                    className={`p-1.5 rounded-lg border transition-colors ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'} disabled:opacity-50`}
+                                    title="Decline Request"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                  <button 
+                                    onClick={() => handleAcceptRequest(student.id)}
+                                    disabled={processingId === student.id}
+                                    className={`px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} disabled:opacity-50`}
+                                  >
+                                    {processingId === student.id ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
+                                    ) : (
+                                      <>
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                        <span className="text-[11px] font-bold uppercase tracking-wider">Approve</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE CARDS VIEW FOR PENDING REQUESTS */}
+                  <div className="md:hidden flex flex-col gap-2 p-3 w-full">
                     {filteredPendingRequests.map(student => {
                       const reqCompany = companies.find(c => String(c.id) === String(student.company_id));
                       return (
-                        <tr key={student.id} className={`transition-colors ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              {student.avatar_url ? (
-                                <img src={student.avatar_url} className={`w-8 h-8 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                        <div key={student.id} className={`flex flex-col p-3 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
+                          <div className="flex items-center gap-3 w-full mb-3">
+                            {student.avatar_url ? (
+                              <img src={student.avatar_url} className={`w-10 h-10 rounded-full object-cover border ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`} />
+                            ) : (
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[14px] font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
+                                {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
+                              </div>
+                            )}
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className={`text-[13px] font-bold truncate ${textMain}`}>{student.first_name} {student.last_name}</span>
+                              <span className={`text-[11px] truncate font-bold mt-0.5 ${theme.text}`}>Req: {reqCompany?.name || 'Unknown Company'}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 w-full">
+                            <button 
+                              onClick={() => handleDeclineRequest(student.id)}
+                              disabled={processingId === student.id}
+                              className={`flex-1 justify-center py-2 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'} disabled:opacity-50`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                              <span className="text-[11px] font-bold uppercase tracking-wider">Decline</span>
+                            </button>
+                            <button 
+                              onClick={() => handleAcceptRequest(student.id)}
+                              disabled={processingId === student.id}
+                              className={`flex-1 justify-center py-2 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} disabled:opacity-50`}
+                            >
+                              {processingId === student.id ? (
+                                <div className="w-3.5 h-3.5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
                               ) : (
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? theme.bgLight : 'bg-gray-100'} ${theme.text}`}>
-                                  {student.first_name?.charAt(0)}{student.last_name?.charAt(0)}
-                                </div>
+                                <>
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                  <span className="text-[11px] font-bold uppercase tracking-wider">Approve</span>
+                                </>
                               )}
-                              <span className={`text-[13px] font-bold ${textMain}`}>{student.first_name} {student.last_name}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`text-[12px] font-bold ${theme.text}`}>{reqCompany?.name || 'Unknown Company'}</span>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button 
-                                onClick={() => handleDeclineRequest(student.id)}
-                                disabled={processingId === student.id}
-                                className={`p-1.5 rounded-lg border transition-colors ${isDarkMode ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'} disabled:opacity-50`}
-                                title="Decline Request"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                              </button>
-                              <button 
-                                onClick={() => handleAcceptRequest(student.id)}
-                                disabled={processingId === student.id}
-                                className={`px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} disabled:opacity-50`}
-                              >
-                                {processingId === student.id ? (
-                                  <div className="w-3.5 h-3.5 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin"></div>
-                                ) : (
-                                  <>
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                                    <span className="text-[11px] font-bold uppercase tracking-wider">Approve</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+
+                </div>
               )}
             </div>
           </div>
